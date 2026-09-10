@@ -152,10 +152,13 @@ endpoint devuelve `fragments/analysis-results`, que sustituye al indicador de pr
 - El JS de arrastrar y soltar (`static/js/dragdrop.js`) inyecta el archivo en el `<input>` real
   mediante `DataTransfer`, que es lo que permite a HTMX incluirlo en el `FormData`.
 - `static/js/analysis-state.js` mantiene desactivado el botón «Analizar documento» mientras hay
-  un análisis en curso: el POST responde al instante con el panel de progreso, así que
-  `hx-disabled-elt` —que solo cubre esa petición— no basta. El estado se recalcula en
-  `htmx:afterRequest` según siga o no el `.progress-panel` en la página; ese evento llega
-  después de que htmx reactive los elementos de `hx-disabled-elt`, así que no se pisan.
+  un análisis en curso **y mientras se muestran resultados completados** (`.results__banner`):
+  el POST responde al instante con el panel de progreso, así que `hx-disabled-elt` —que solo
+  cubre esa petición— no basta, y unos resultados en pantalla no deben poder dispararse de
+  nuevo sin volver por «Analizar otro documento» (o recargar). Un análisis fallido sí reactiva
+  el botón, porque no hay banner desde el que volver. El estado se recalcula en
+  `htmx:afterRequest`, que htmx dispara después del intercambio y después de reactivar los
+  elementos de `hx-disabled-elt`, así que no se pisan.
 
 ## Estilo del proyecto
 

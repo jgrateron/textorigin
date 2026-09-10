@@ -94,7 +94,40 @@ class AnalysisResultsRenderTest {
                 .andExpect(content().string(containsString("Sospecha alta")))
                 .andExpect(content().string(containsString("Evidencias de mano humana")))
                 .andExpect(content().string(containsString("Una errata coherente")))
+                // analysis-state.js usa esta clase para mantener el botón desactivado hasta
+                // que se pulse «Analizar otro documento».
+                .andExpect(content().string(containsString("results__banner")))
                 .andExpect(content().string(containsString("/analysis/" + id + "/segment/0")));
+    }
+
+    @Test
+    void elAnalisisFallidoNoMuestraElBannerDeResultadosYElBotonSigueActivo() throws Exception {
+        String id = UUID.randomUUID().toString();
+        seed(DocumentAnalysis.builder()
+                .id(id)
+                .document(Document.builder()
+                        .fileName("ensayo.pdf")
+                        .contentType("application/pdf")
+                        .text("texto")
+                        .wordCount(320)
+                        .build())
+                .status(DocumentAnalysis.Status.FAILED)
+                .errorMessage("No se pudo analizar ningún segmento del documento.")
+                .createdAt(LocalDateTime.now())
+                .completedAt(LocalDateTime.now())
+                .segments(new CopyOnWriteArrayList<>(List.of(SegmentAnalysis.builder()
+                        .index(0)
+                        .text("Un párrafo que no pudo analizarse.")
+                        .errorMessage("No se pudo analizar este fragmento.")
+                        .build())))
+                .build());
+
+        // Sin banner no hay enlace «Analizar otro documento», así que el botón debe poder
+        // volver a pulsarse para reintentar sin recargar la página.
+        mockMvc.perform(get("/analysis/" + id))
+                .andExpect(status().isOk())
+                .andExpect(content().string(containsString("No se pudo completar el análisis")))
+                .andExpect(content().string(not(containsString("results__banner"))));
     }
 
     @Test
