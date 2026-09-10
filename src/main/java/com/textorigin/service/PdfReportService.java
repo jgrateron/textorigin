@@ -20,10 +20,8 @@ import org.springframework.stereotype.Service;
 
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
-import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
 import java.util.List;
-import java.util.Locale;
 
 /**
  * Genera el informe PDF de un análisis con Apache PDFBox 3.
@@ -50,9 +48,6 @@ import java.util.Locale;
 @Slf4j
 @Service
 public class PdfReportService {
-
-    private static final DateTimeFormatter DATE_FORMAT =
-            DateTimeFormatter.ofPattern("dd/MM/yyyy 'a las' HH:mm", new Locale("es", "ES"));
 
     /** Correo de contacto impreso en el informe, configurable con {@code textorigin.contact-email}. */
     @Value("${textorigin.contact-email:jgrateron@gmail.com}")
