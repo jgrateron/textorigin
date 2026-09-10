@@ -34,6 +34,10 @@ services:
     environment:
       PORT: 8080
 
+      # Zona horaria de la aplicación (cuota diaria, limpieza programada y fechas del
+      # informe). Sin definir se usa UTC: fíjala aquí o en el archivo .env.
+      TZ: ${TZ:-UTC}
+
       # Obligatoria. Si no está definida, Compose se detiene con este mensaje
       # en lugar de arrancar un contenedor que no podría analizar nada.
       DEEPSEEK_API_KEY: ${DEEPSEEK_API_KEY:?Define DEEPSEEK_API_KEY en el entorno o en el archivo .env}

@@ -114,6 +114,12 @@ endpoint devuelve `fragments/analysis-results`, que sustituye al indicador de pr
   escribe **el último**, de modo que leer `COMPLETED` garantiza ver todos los resultados.
 - **El prompt es un recurso externo** (`prompts/deepseek-analysis.txt`), cargado con
   `@Value("classpath:...")` y con el marcador `{text}` sustituido por `String.replace`.
+- **La zona horaria es la del contenedor** (`TZ`, UTC por defecto en la imagen Alpine): de ella
+  dependen el reinicio de la cuota diaria (`LocalDate.now()` en `QuotaService`), la limpieza
+  programada de las 3:00 y las fechas que imprime el informe
+  (`DocumentAnalysis.getFormattedCompletedAt()`, formato `dd/MM/yyyy`). El `docker-compose.yml`
+  la pasa con `TZ` (por defecto UTC); cualquier fecha nueva que se muestre debe salir de los
+  getters del modelo, que ya respetan esa zona.
 - **La bibliografía final no se analiza**: `BibliographyDetector` la recorta del texto antes
   de crear el `Document`, de modo que estadísticas, segmentos e informe describen exactamente
   el texto analizado. Solo reconoce encabezados completos y cortos (hasta 60 caracteres, con

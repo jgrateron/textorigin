@@ -199,6 +199,18 @@ Variables de entorno admitidas por el contenedor (todas opcionales salvo la prim
 | `TEXTOORIGIN_CONTACT_EMAIL` | `textorigin.contact-email` | `jgrateron@gmail.com` |
 | `SPRING_AI_OPENAI_CHAT_OPTIONS_MODEL` | `spring.ai.openai.chat.options.model` | `deepseek-flash` |
 | `TEXTOORIGIN_MODEL_PREFER_SPRING_AI` | `textorigin.model.prefer-spring-ai` | `false` |
+| `TURNSTILE_SITE_KEY` | `textorigin.captcha.site-key` | — (sin ella no hay CAPTCHA) |
+| `TURNSTILE_SECRET_KEY` | `textorigin.captcha.secret-key` | — (sin ella no hay CAPTCHA) |
+| `TZ` | Zona horaria del contenedor (cuota diaria, limpieza de las 3:00 y fechas del informe) | `UTC` |
+
+> Con `TURNSTILE_SITE_KEY` y `TURNSTILE_SECRET_KEY` se activa la verificación anti-bots
+> (ver [Verificación anti-bots (CAPTCHA)](#verificación-anti-bots-captcha)). Sin ellas la
+> aplicación arranca igualmente y solo aplica el límite diario por IP.
+>
+> **Zona horaria:** sin `TZ` el contenedor usa UTC, así que la cuota diaria se reinicia a
+> medianoche UTC y el informe imprime la hora UTC. Fíjala (por ejemplo
+> `TZ=America/Caracas` o `TZ=Europe/Madrid`) para que coincidan con tu hora local; se puede
+> comprobar con `docker exec textorigin date`.
 
 > El modelo por defecto es `deepseek-flash`, el nombre actual del modelo de la familia Flash
 > (el antiguo `deepseek-chat` quedó retirado el 24/07/2026). La petición envía
