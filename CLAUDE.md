@@ -75,9 +75,14 @@ endpoint devuelve `fragments/analysis-results`, que sustituye al indicador de pr
   modelos de audio, imagen o embeddings, que no se usan—. **No la reactives** sin resolver antes
   ese comportamiento. `DeepSeekConfig` también normaliza la URL base quitando el sufijo `/v1`
   para evitar `/v1/v1/chat/completions`.
-- **Doble vía de llamada al modelo**: `ChatClient` de Spring AI si el bean existe, y si no una
-  petición HTTP directa en formato OpenAI (`DeepSeekRequest`/`DeepSeekResponse`). Ambas rutas
-  deben seguir funcionando.
+- **Doble vía de llamada al modelo**: la petición HTTP directa en formato OpenAI
+  (`DeepSeekRequest`/`DeepSeekResponse`) es la **vía preferida** porque es la única que puede
+  enviar parámetros propios de DeepSeek: la petición va con `thinking: {"type": "disabled"}`
+  (los V4 razonan por defecto, y al razonar se ignora `temperature` y se gastan tokens de salida
+  inútiles aquí). El `ChatClient` de Spring AI sigue operativo y se usa con
+  `textorigin.model.prefer-spring-ai=true`; en su versión 1.0.0 no admite ese parámetro, así que
+  por esa vía el modelo razonaría. Ambas rutas deben seguir funcionando, y el informe PDF imprime
+  el modelo realmente configurado (`spring.ai.openai.chat.options.model`), no un literal.
 - **Los fragmentos de Thymeleaf no reciben parámetros**: leen variables del modelo (`analysis`,
   `quota`, `segment`, `contactEmail`) para que un controlador pueda devolverlos directamente
   como vista (`return "fragments/analysis-results :: results"`). Mantén esa convención.

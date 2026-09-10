@@ -20,7 +20,7 @@ import java.util.Map;
  *
  * <pre>
  * POST https://api.deepseek.com/v1/chat/completions
- * { "model": "deepseek-chat", "messages": [...], "temperature": 0.2 }
+ * { "model": "deepseek-flash", "messages": [...], "temperature": 0.2 }
  * </pre>
  */
 @Data
@@ -30,7 +30,14 @@ import java.util.Map;
 @JsonInclude(JsonInclude.Include.NON_NULL)
 public class DeepSeekRequest {
 
-    /** Identificador del modelo, por ejemplo {@code deepseek-chat}. */
+    /**
+     * Modo de razonamiento desactivado. Los modelos V4 de DeepSeek razonan por defecto, y en ese
+     * modo {@code temperature} no tiene efecto y se gastan tokens de salida que este análisis (un
+     * JSON corto por segmento) no aprovecha.
+     */
+    private static final Map<String, Object> THINKING_DISABLED = Map.of("type", "disabled");
+
+    /** Identificador del modelo, por ejemplo {@code deepseek-flash}. */
     private String model;
 
     /** Conversación enviada al modelo. */
@@ -49,6 +56,10 @@ public class DeepSeekRequest {
     /** Número máximo de tokens de la respuesta. */
     @JsonProperty("max_tokens")
     private Integer maxTokens;
+
+    /** Modo de razonamiento del modelo; TextOrigin lo envía desactivado. */
+    @JsonProperty("thinking")
+    private Map<String, Object> thinking;
 
     /** Un mensaje de la conversación. */
     @Data
@@ -100,6 +111,7 @@ public class DeepSeekRequest {
                 .temperature(temperature)
                 .stream(false)
                 .responseFormat(Map.of("type", "json_object"))
+                .thinking(THINKING_DISABLED)
                 .build();
     }
 

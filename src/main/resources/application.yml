@@ -39,12 +39,19 @@ spring:
       base-url: https://api.deepseek.com
       chat:
         options:
-          model: deepseek-chat
+          # Nombre actual del modelo (el antiguo deepseek-chat quedó retirado el 24/07/2026).
+          # El modo de razonamiento se desactiva en la petición, desde DeepSeekRequest.
+          model: deepseek-flash
           temperature: 0.2
 
 textorigin:
   # Correo de contacto que aparece en la interfaz, en los mensajes de error y en el informe PDF.
   contact-email: jgrateron@gmail.com
+  model:
+    # Por defecto se llama a DeepSeek por HTTP directo: es la única vía que puede enviar
+    # parámetros propios del proveedor (thinking desactivado). Con true se usa el ChatClient
+    # de Spring AI cuando la clave está configurada; ambas vías siguen operativas.
+    prefer-spring-ai: false
   quota:
     max-per-ip-per-day: 10
   analysis:

@@ -58,6 +58,10 @@ public class PdfReportService {
     @Value("${textorigin.contact-email:jgrateron@gmail.com}")
     private String contactEmail;
 
+    /** Modelo realmente configurado, para que el informe no cite uno que ya no se usa. */
+    @Value("${spring.ai.openai.chat.options.model:deepseek-flash}")
+    private String model;
+
     /**
      * Genera el informe en memoria.
      *
@@ -71,7 +75,7 @@ public class PdfReportService {
         }
 
         try (PDDocument document = new PDDocument()) {
-            PdfWriter writer = new PdfWriter(document, contactEmail);
+            PdfWriter writer = new PdfWriter(document, contactEmail, model);
             writer.writeCover(analysis);
             writer.writeExecutiveSummary(analysis);
             writer.writeDocumentWarnings(analysis);
@@ -145,6 +149,7 @@ public class PdfReportService {
 
         private final PDDocument document;
         private final String contactEmail;
+        private final String model;
         private final PDFont regular = new PDType1Font(Standard14Fonts.FontName.HELVETICA);
         private final PDFont bold = new PDType1Font(Standard14Fonts.FontName.HELVETICA_BOLD);
         private final PDFont oblique = new PDType1Font(Standard14Fonts.FontName.HELVETICA_OBLIQUE);
@@ -153,9 +158,10 @@ public class PdfReportService {
         private PDPageContentStream stream;
         private float cursorY;
 
-        PdfWriter(PDDocument document, String contactEmail) throws IOException {
+        PdfWriter(PDDocument document, String contactEmail, String model) throws IOException {
             this.document = document;
             this.contactEmail = contactEmail;
+            this.model = model;
             newPage();
         }
 
@@ -262,7 +268,7 @@ public class PdfReportService {
             writeParagraph("Documento analizado: " + analysis.getDocumentName()
                     + ". Se han dividido " + analysis.getDocument().getWordCount()
                     + " palabras en " + analysis.getTotalCount() + " segmentos, analizados "
-                    + "individualmente con el modelo deepseek-chat.", regular, 10f, NEUTRAL_900);
+                    + "individualmente con el modelo " + model + ".", regular, 10f, NEUTRAL_900);
 
             cursorY -= 6;
             writeCategoryBoxes(analysis);

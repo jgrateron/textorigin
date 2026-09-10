@@ -1,5 +1,6 @@
 package com.textorigin.dto;
 
+import com.fasterxml.jackson.databind.ObjectMapper;
 import org.junit.jupiter.api.Test;
 
 import static org.assertj.core.api.Assertions.assertThat;
@@ -13,7 +14,7 @@ class DeepSeekRequestTest {
     @Test
     void laPeticionIncluyeElMensajeDeSistemaAntesDelTexto() {
         DeepSeekRequest request = DeepSeekRequest.forPrompt(
-                "deepseek-chat", "Eres un analista experto.", "Analiza este texto.", 0.2);
+                "deepseek-flash", "Eres un analista experto.", "Analiza este texto.", 0.2);
 
         assertThat(request.getMessages()).hasSize(2);
         assertThat(request.getMessages().get(0).getRole()).isEqualTo("system");
@@ -23,18 +24,31 @@ class DeepSeekRequestTest {
         assertThat(request.getResponseFormat()).containsEntry("type", "json_object");
         assertThat(request.getStream()).isFalse();
         assertThat(request.getTemperature()).isEqualTo(0.2);
+        assertThat(request.getThinking()).containsEntry("type", "disabled");
     }
 
     @Test
     void sinPromptDeSistemaSoloEnviaElMensajeDeUsuario() {
-        assertThat(DeepSeekRequest.forPrompt("deepseek-chat", "solo texto", 0.2).getMessages())
+        assertThat(DeepSeekRequest.forPrompt("deepseek-flash", "solo texto", 0.2).getMessages())
                 .singleElement()
                 .satisfies(message -> {
                     assertThat(message.getRole()).isEqualTo("user");
                     assertThat(message.getContent()).isEqualTo("solo texto");
                 });
 
-        assertThat(DeepSeekRequest.forPrompt("deepseek-chat", "   ", "solo texto", 0.2).getMessages())
+        assertThat(DeepSeekRequest.forPrompt("deepseek-flash", "   ", "solo texto", 0.2).getMessages())
                 .hasSize(1);
+    }
+
+    @Test
+    void elJsonEnviaElModoDeRazonamientoDesactivadoYElFormatoJson() throws Exception {
+        DeepSeekRequest request = DeepSeekRequest.forPrompt(
+                "deepseek-flash", "Eres un analista experto.", "Analiza este texto.", 0.2);
+
+        String json = new ObjectMapper().writeValueAsString(request);
+
+        assertThat(json).contains("\"thinking\":{\"type\":\"disabled\"}");
+        assertThat(json).contains("\"response_format\":{\"type\":\"json_object\"}");
+        assertThat(json).contains("\"stream\":false");
     }
 }

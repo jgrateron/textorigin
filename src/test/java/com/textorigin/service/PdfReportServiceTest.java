@@ -28,6 +28,7 @@ class PdfReportServiceTest {
     private static PdfReportService service() {
         PdfReportService service = new PdfReportService();
         ReflectionTestUtils.setField(service, "contactEmail", "docente@ejemplo.org");
+        ReflectionTestUtils.setField(service, "model", "deepseek-flash");
         return service;
     }
 
@@ -87,6 +88,8 @@ class PdfReportServiceTest {
 
         String text = extractText(pdf);
         assertThat(text).contains("Probabilidad estimada de IA");
+        // El modelo configurado aparece en el resumen (el ajuste de línea puede partirlo).
+        assertThat(text).contains("deepseek-flash");
         assertThat(text).contains("62 %");
         assertThat(text).contains("4. Fragmentos sospechosos citados");
         assertThat(text).contains("En el mundo actual, es importante destacar");

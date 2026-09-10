@@ -194,7 +194,16 @@ Variables de entorno admitidas por el contenedor (todas opcionales salvo la prim
 | `TEXTOORIGIN_QUOTA_MAX_PER_IP_PER_DAY` | `textorigin.quota.max-per-ip-per-day` | `10` |
 | `TEXTOORIGIN_ANALYSIS_CONCURRENT_SEGMENTS` | `textorigin.analysis.concurrent-segments` | `5` |
 | `TEXTOORIGIN_CONTACT_EMAIL` | `textorigin.contact-email` | `jgrateron@gmail.com` |
-| `SPRING_AI_OPENAI_CHAT_OPTIONS_MODEL` | `spring.ai.openai.chat.options.model` | `deepseek-chat` |
+| `SPRING_AI_OPENAI_CHAT_OPTIONS_MODEL` | `spring.ai.openai.chat.options.model` | `deepseek-flash` |
+| `TEXTOORIGIN_MODEL_PREFER_SPRING_AI` | `textorigin.model.prefer-spring-ai` | `false` |
+
+> El modelo por defecto es `deepseek-flash`, el nombre actual del modelo de la familia Flash
+> (el antiguo `deepseek-chat` quedó retirado el 24/07/2026). La petición envía
+> `thinking: {"type": "disabled"}` para conservar el comportamiento de antes: sin modo de
+> razonamiento, la `temperature` se aplica y no se gastan tokens de salida en razonar. Por eso
+> la llamada se hace por HTTP directo (única vía que admite parámetros propios de DeepSeek);
+> con `prefer-spring-ai=true` se usa el cliente de Spring AI, que en su versión 1.0.0 no puede
+> desactivar el razonamiento.
 
 ---
 

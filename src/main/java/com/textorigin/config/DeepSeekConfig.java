@@ -57,7 +57,7 @@ public class DeepSeekConfig {
     @Value("${spring.ai.openai.base-url:https://api.deepseek.com}")
     private String baseUrl;
 
-    @Value("${spring.ai.openai.chat.options.model:deepseek-chat}")
+    @Value("${spring.ai.openai.chat.options.model:deepseek-flash}")
     private String model;
 
     @Value("${spring.ai.openai.chat.options.temperature:0.2}")

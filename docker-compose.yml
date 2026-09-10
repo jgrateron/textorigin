@@ -43,7 +43,8 @@ services:
       # textorigin.quota.max-per-ip-per-day  ->  TEXTOORIGIN_QUOTA_MAX_PER_IP_PER_DAY
       TEXTOORIGIN_QUOTA_MAX_PER_IP_PER_DAY: ${MAX_PER_IP_PER_DAY:-10}
       TEXTOORIGIN_ANALYSIS_CONCURRENT_SEGMENTS: ${CONCURRENT_SEGMENTS:-5}
-      SPRING_AI_OPENAI_CHAT_OPTIONS_MODEL: ${DEEPSEEK_MODEL:-deepseek-chat}
+      SPRING_AI_OPENAI_CHAT_OPTIONS_MODEL: ${DEEPSEEK_MODEL:-deepseek-flash}
+      TEXTOORIGIN_MODEL_PREFER_SPRING_AI: ${PREFER_SPRING_AI:-false}
 
     healthcheck:
       test: ["CMD-SHELL", "wget -qO- http://127.0.0.1:8080/health > /dev/null 2>&1 || exit 1"]

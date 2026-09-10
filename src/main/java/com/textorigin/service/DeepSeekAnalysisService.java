@@ -73,8 +73,11 @@ public class DeepSeekAnalysisService {
     @Value("${spring.ai.openai.api-key:}")
     private String apiKey;
 
-    @Value("${spring.ai.openai.chat.options.model:deepseek-chat}")
+    @Value("${spring.ai.openai.chat.options.model:deepseek-flash}")
     private String model;
+
+    @Value("${textorigin.model.prefer-spring-ai:false}")
+    private boolean preferSpringAi;
 
     @Value("${spring.ai.openai.chat.options.temperature:0.2}")
     private Double temperature;
@@ -223,13 +226,25 @@ public class DeepSeekAnalysisService {
                 : new AnalysisException("No se pudo analizar el segmento tras " + retryAttempts + " intentos.");
     }
 
-    /** Delega en Spring AI si está disponible y, si no, en la llamada HTTP directa. */
+    /**
+     * Elige la vía de llamada al modelo.
+     *
+     * <p>Por defecto se usa la petición HTTP directa: es la única que puede enviar parámetros
+     * propios de DeepSeek, como desactivar el modo de razonamiento
+     * ({@code thinking: {"type": "disabled"}}), que la versión 1.0.0 de Spring AI no admite y
+     * cuyo valor por defecto —razonar— ignoraría {@code temperature} y gastaría tokens de salida
+     * que este análisis no aprovecha. Con {@code textorigin.model.prefer-spring-ai=true} se usa
+     * el {@link ChatClient} cuando existe; ambas vías siguen operativas.</p>
+     */
     private String callModel(String systemPrompt, String userPrompt) {
         ChatClient chatClient = chatClientProvider.getIfAvailable();
-        if (chatClient != null) {
-            return callWithSpringAi(chatClient, systemPrompt, userPrompt);
+        if (preferSpringAi) {
+            if (chatClient != null) {
+                log.debug("Llamada a DeepSeek por la vía de Spring AI (prefer-spring-ai=true)");
+                return callWithSpringAi(chatClient, systemPrompt, userPrompt);
+            }
+            log.debug("Se prefiere Spring AI pero no hay ChatClient; se usa la vía HTTP directa");
         }
-        log.debug("Cliente de Spring AI no disponible; se usa la llamada HTTP directa a DeepSeek");
         return callWithRestClient(systemPrompt, userPrompt);
     }
 
