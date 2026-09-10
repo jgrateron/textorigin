@@ -6,9 +6,13 @@ import com.textorigin.exception.TextExtractionException.Reason;
 import com.textorigin.model.AnalysisRequest;
 import com.textorigin.model.Document;
 import com.textorigin.model.DocumentAnalysis;
+import com.textorigin.model.DocumentWarning;
+import com.textorigin.model.SanitizedText;
 import com.textorigin.model.Segment;
 import com.textorigin.service.AnalysisStorageService;
+import com.textorigin.service.BibliographyDetector;
 import com.textorigin.service.DeepSeekAnalysisService;
+import com.textorigin.service.InjectionDefenseService;
 import com.textorigin.service.QuotaService;
 import com.textorigin.service.TextExtractionService;
 import com.textorigin.service.TextSegmentationService;
@@ -24,6 +28,7 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.multipart.MultipartFile;
 
+import java.util.ArrayList;
 import java.util.List;
 
 /**
@@ -40,6 +45,8 @@ import java.util.List;
 public class AnalysisController {
 
     private final TextExtractionService extractionService;
+    private final BibliographyDetector bibliographyDetector;
+    private final InjectionDefenseService injectionDefense;
     private final TextSegmentationService segmentationService;
     private final AnalysisStorageService storageService;
     private final DeepSeekAnalysisService analysisService;
@@ -77,12 +84,21 @@ public class AnalysisController {
         boolean fromFile = analysisRequest.isFilePresent();
         analysisRequest.setSource(fromFile ? Document.Source.UPLOAD : Document.Source.PASTED);
 
-        String extractedText = resolveText(file, text);
+        // Antes de construir el documento: la extracción ya ha descartado el texto oculto, la
+        // bibliografía final se excluye aquí y, después, se neutralizan las instrucciones
+        // dirigidas al modelo que hayan quedado en el texto. Todo lo descartado deja aviso.
+        SanitizedText extracted = resolveText(file, text);
+        SanitizedText sanitized = injectionDefense.neutralizeInstructions(
+                bibliographyDetector.stripBibliography(extracted.text()));
+
+        List<DocumentWarning> warnings = new ArrayList<>(extracted.warnings());
+        warnings.addAll(sanitized.warnings());
+
         String fileName = fromFile ? file.getOriginalFilename() : "Texto pegado";
         String contentType = fromFile ? file.getContentType() : "text/plain";
 
         Document document = extractionService.createDocument(
-                extractedText, fileName, contentType, analysisRequest.getSource());
+                sanitized.text(), fileName, contentType, analysisRequest.getSource());
 
         List<Segment> segments = segmentationService.segment(document.getText());
         if (segments.isEmpty()) {
@@ -91,9 +107,10 @@ public class AnalysisController {
                     Reason.TEXT_TOO_SHORT);
         }
 
-        DocumentAnalysis analysis = storageService.save(storageService.createAnalysis(document, segments));
-        log.info("Análisis solicitado: id={} origen={} -> {} segmentos",
-                analysis.getId(), analysisRequest.describe(), segments.size());
+        DocumentAnalysis analysis = storageService.save(
+                storageService.createAnalysis(document, segments, warnings));
+        log.info("Análisis solicitado: id={} origen={} -> {} segmentos, {} avisos de defensa",
+                analysis.getId(), analysisRequest.describe(), segments.size(), warnings.size());
 
         // La IP se captura ahora: el consumo se registra desde el hilo de fondo, que ya no
         // tiene acceso a la petición HTTP.
@@ -161,12 +178,12 @@ public class AnalysisController {
     }
 
     /** Decide si el texto analizable viene de un archivo o del área de texto. */
-    private String resolveText(MultipartFile file, String text) {
+    private SanitizedText resolveText(MultipartFile file, String text) {
         if (file != null && !file.isEmpty()) {
-            return extractionService.extractText(file);
+            return extractionService.extractTextWithFindings(file);
         }
         if (text != null && !text.isBlank()) {
-            return extractionService.validatePastedText(text);
+            return extractionService.validatePastedTextWithFindings(text);
         }
         throw new TextExtractionException(
                 "No has subido ningún archivo ni pegado ningún texto. Elige una de las dos opciones "

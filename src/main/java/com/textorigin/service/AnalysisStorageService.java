@@ -3,6 +3,7 @@ package com.textorigin.service;
 import com.textorigin.exception.AnalysisException;
 import com.textorigin.model.Document;
 import com.textorigin.model.DocumentAnalysis;
+import com.textorigin.model.DocumentWarning;
 import com.textorigin.model.Segment;
 import com.textorigin.model.SegmentAnalysis;
 import lombok.extern.slf4j.Slf4j;
@@ -42,6 +43,23 @@ public class AnalysisStorageService {
      * @return el análisis recién creado, todavía sin resultados
      */
     public DocumentAnalysis createAnalysis(Document document, List<Segment> segments) {
+        return createAnalysis(document, segments, List.of());
+    }
+
+    /**
+     * Crea el análisis con sus segmentos en estado pendiente y los avisos de las defensas
+     * anti prompt-injection.
+     *
+     * <p>Los avisos se fijan <strong>antes</strong> de guardar el análisis, igual que los
+     * segmentos: cuando una petición encuentra el análisis en memoria, ya están completos.</p>
+     *
+     * @param document documento original
+     * @param segments segmentos en los que se ha dividido
+     * @param warnings avisos de contenido oculto o dirigido al modelo, en orden de detección
+     * @return el análisis recién creado, todavía sin resultados
+     */
+    public DocumentAnalysis createAnalysis(Document document, List<Segment> segments,
+                                           List<DocumentWarning> warnings) {
         List<SegmentAnalysis> pending = segments.stream()
                 .map(segment -> SegmentAnalysis.builder()
                         .index(segment.getIndex())
@@ -54,6 +72,7 @@ public class AnalysisStorageService {
                 .document(document)
                 .status(DocumentAnalysis.Status.PENDING)
                 .segments(pending)
+                .warnings(List.copyOf(warnings == null ? List.of() : warnings))
                 .createdAt(LocalDateTime.now())
                 .build();
     }

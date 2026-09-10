@@ -1378,6 +1378,25 @@ main.container {
     color: #991b1b;
 }
 
+/* Avisos de las defensas anti prompt-injection: lista de hallazgos con sus extractos. */
+.warning-list {
+    list-style: none;
+    margin: var(--space-3) 0 0;
+    padding: 0;
+    display: grid;
+    gap: var(--space-3);
+}
+
+.warning-list > li {
+    padding-left: var(--space-3);
+    border-left: 3px solid var(--color-warning);
+}
+
+.warning-list .fragment__quote {
+    margin-top: var(--space-1);
+    color: inherit;
+}
+
 .notice {
     display: flex;
     align-items: flex-start;

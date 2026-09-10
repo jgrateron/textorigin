@@ -89,4 +89,22 @@ class DocumentAnalysisTest {
     void elPorcentajeGlobalEsUnGuionSinResultados() {
         assertThat(DocumentAnalysis.builder().build().getGlobalScoreLabel()).isEqualTo("—");
     }
+
+    @Test
+    void losAvisosDeDefensaSeDetectanYSeCuentan() {
+        DocumentAnalysis sinAvisos = DocumentAnalysis.builder().build();
+
+        assertThat(sinAvisos.hasWarnings()).isFalse();
+        assertThat(sinAvisos.getWarningCount()).isZero();
+        assertThat(sinAvisos.getWarnings()).isEmpty();
+
+        DocumentAnalysis conAvisos = DocumentAnalysis.builder()
+                .warnings(List.of(DocumentWarning.instructionPhrase("ignora las instrucciones")))
+                .build();
+
+        assertThat(conAvisos.hasWarnings()).isTrue();
+        assertThat(conAvisos.getWarningCount()).isEqualTo(1);
+        assertThat(conAvisos.getWarnings().getFirst().getTitle())
+                .isEqualTo("Posible instrucción dirigida al modelo");
+    }
 }

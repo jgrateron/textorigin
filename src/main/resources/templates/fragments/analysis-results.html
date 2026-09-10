@@ -36,6 +36,9 @@
         </div>
     </div>
 
+    <!-- ==================== Contenido dirigido al modelo ==================== -->
+    <div th:replace="~{fragments/document-warnings :: warnings}"></div>
+
     <!-- ==================== Veredicto global ==================== -->
     <div class="results__banner" th:if="${analysis.completed}" th:classappend="${analysis.globalCssClass}">
         <div class="results__banner-text">

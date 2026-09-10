@@ -62,6 +62,9 @@ public class DeepSeekAnalysisService {
     /** Marcador sustituido por el texto del segmento dentro del prompt. */
     private static final String TEXT_PLACEHOLDER = "{text}";
 
+    /** Marcador que separa las instrucciones (mensaje de sistema) del texto (mensaje de usuario). */
+    private static final String TEXT_SECTION_MARKER = "===TEXTO A ANALIZAR===";
+
     private final ObjectProvider<ChatClient> chatClientProvider;
     private final RestClient deepSeekRestClient;
     private final ObjectMapper objectMapper;
@@ -85,8 +88,11 @@ public class DeepSeekAnalysisService {
     @Value("classpath:prompts/deepseek-analysis.txt")
     private Resource promptResource;
 
-    /** Plantilla del prompt, cargada una sola vez al arrancar. */
-    private String promptTemplate;
+    /** Instrucciones del analista, enviadas como mensaje de sistema. */
+    private String systemPrompt;
+
+    /** Plantilla del mensaje de usuario, con el marcador {@value #TEXT_PLACEHOLDER}. */
+    private String userTemplate;
 
     public DeepSeekAnalysisService(ObjectProvider<ChatClient> chatClientProvider,
                                    @Qualifier("deepSeekRestClient") RestClient deepSeekRestClient,
@@ -98,17 +104,28 @@ public class DeepSeekAnalysisService {
         this.analysisExecutor = analysisExecutor;
     }
 
-    /** Carga el prompt desde el classpath. */
+    /**
+     * Carga el prompt desde el classpath y lo parte en sus dos zonas: las instrucciones (mensaje
+     * de sistema) y la plantilla del texto (mensaje de usuario). Separarlas es la primera barrera
+     * frente al contenido del documento que intente pasar por instrucciones.
+     */
     @PostConstruct
     void loadPromptTemplate() {
         try (InputStream input = promptResource.getInputStream()) {
-            promptTemplate = new String(input.readAllBytes(), StandardCharsets.UTF_8);
-            if (!promptTemplate.contains(TEXT_PLACEHOLDER)) {
+            String prompt = new String(input.readAllBytes(), StandardCharsets.UTF_8);
+            int markerIndex = prompt.indexOf(TEXT_SECTION_MARKER);
+            if (markerIndex < 0) {
+                throw new IllegalStateException(
+                        "El prompt de análisis no contiene el marcador " + TEXT_SECTION_MARKER);
+            }
+            systemPrompt = prompt.substring(0, markerIndex).strip();
+            userTemplate = prompt.substring(markerIndex + TEXT_SECTION_MARKER.length()).strip();
+            if (!userTemplate.contains(TEXT_PLACEHOLDER)) {
                 throw new IllegalStateException(
                         "El prompt de análisis no contiene el marcador " + TEXT_PLACEHOLDER);
             }
-            log.info("Prompt de análisis cargado desde '{}' ({} caracteres)",
-                    promptResource.getFilename(), promptTemplate.length());
+            log.info("Prompt de análisis cargado desde '{}' ({} caracteres de instrucciones, {} de texto)",
+                    promptResource.getFilename(), systemPrompt.length(), userTemplate.length());
         } catch (IOException e) {
             throw new IllegalStateException("No se pudo cargar el prompt de análisis del classpath", e);
         }
@@ -185,12 +202,12 @@ public class DeepSeekAnalysisService {
     private SegmentResultDto analyseSegment(String text, int index, String analysisId) {
         requireApiKey();
 
-        String prompt = promptTemplate.replace(TEXT_PLACEHOLDER, text);
+        String userPrompt = userTemplate.replace(TEXT_PLACEHOLDER, text);
         AnalysisException lastError = null;
 
         for (int attempt = 1; attempt <= retryAttempts; attempt++) {
             try {
-                String raw = callModel(prompt);
+                String raw = callModel(systemPrompt, userPrompt);
                 return parseResponse(raw, index, analysisId);
             } catch (AnalysisException e) {
                 lastError = e;
@@ -207,18 +224,22 @@ public class DeepSeekAnalysisService {
     }
 
     /** Delega en Spring AI si está disponible y, si no, en la llamada HTTP directa. */
-    private String callModel(String prompt) {
+    private String callModel(String systemPrompt, String userPrompt) {
         ChatClient chatClient = chatClientProvider.getIfAvailable();
         if (chatClient != null) {
-            return callWithSpringAi(chatClient, prompt);
+            return callWithSpringAi(chatClient, systemPrompt, userPrompt);
         }
         log.debug("Cliente de Spring AI no disponible; se usa la llamada HTTP directa a DeepSeek");
-        return callWithRestClient(prompt);
+        return callWithRestClient(systemPrompt, userPrompt);
     }
 
-    private String callWithSpringAi(ChatClient chatClient, String prompt) {
+    private String callWithSpringAi(ChatClient chatClient, String systemPrompt, String userPrompt) {
         try {
-            ChatResponse response = chatClient.prompt().user(prompt).call().chatResponse();
+            ChatResponse response = chatClient.prompt()
+                    .system(systemPrompt)
+                    .user(userPrompt)
+                    .call()
+                    .chatResponse();
             if (response == null || response.getResult() == null || response.getResult().getOutput() == null) {
                 throw new AnalysisException("DeepSeek devolvió una respuesta vacía.");
             }
@@ -237,8 +258,8 @@ public class DeepSeekAnalysisService {
         }
     }
 
-    private String callWithRestClient(String prompt) {
-        DeepSeekRequest request = DeepSeekRequest.forPrompt(model, prompt, temperature);
+    private String callWithRestClient(String systemPrompt, String userPrompt) {
+        DeepSeekRequest request = DeepSeekRequest.forPrompt(model, systemPrompt, userPrompt, temperature);
         try {
             DeepSeekResponse response = deepSeekRestClient.post()
                     .uri(DeepSeekConfig.CHAT_COMPLETIONS_PATH)

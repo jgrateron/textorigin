@@ -308,7 +308,12 @@ textorigin/
     │   │   ├── ReportController.java       # Descarga del informe PDF
     │   │   └── GlobalExceptionHandler.java # @ControllerAdvice con el manejo de errores
     │   ├── service/
-    │   │   ├── TextExtractionService.java     # PDF / DOCX / TXT
+    │   │   ├── TextExtractionService.java     # PDF / DOCX / TXT, sin el contenido oculto
+    │   │   ├── HiddenTextPdfStripper.java     # Texto oculto del PDF (blanco, 1 pt, invisible)
+    │   │   ├── HiddenFormatRules.java         # Umbrales de tamaño y color compartidos
+    │   │   ├── InvisibleCharacterSanitizer.java  # Zero-width, bidi y tag chars
+    │   │   ├── InjectionDefenseService.java   # Frases dirigidas al modelo
+    │   │   ├── BibliographyDetector.java      # Recorte de la bibliografía final
     │   │   ├── TextSegmentationService.java   # División en párrafos analizables
     │   │   ├── DeepSeekAnalysisService.java   # Llamada al modelo, reintentos, async
     │   │   ├── AnalysisStorageService.java    # Almacén en memoria con purga
@@ -320,6 +325,9 @@ textorigin/
     │   │   ├── SegmentAnalysis.java
     │   │   ├── SuspiciousFragment.java     # Cita textual señalada por el modelo
     │   │   ├── DocumentAnalysis.java
+    │   │   ├── DocumentWarning.java        # Aviso de contenido neutralizado
+    │   │   ├── HiddenSpan.java             # Fragmento descartado por su formato
+    │   │   ├── SanitizedText.java          # Texto saneado + avisos
     │   │   └── AnalysisRequest.java
     │   ├── dto/
     │   │   ├── DeepSeekRequest.java        # Petición en formato OpenAI
@@ -337,17 +345,29 @@ textorigin/
         │   ├── index.html
         │   ├── analysis.html
         │   ├── error.html
-        │   └── fragments/                  # 7 fragmentos reutilizables
+        │   └── fragments/                  # 8 fragmentos reutilizables
         └── static/
             ├── css/textorigin.css
-            └── js/dragdrop.js
+            └── js/
+                ├── dragdrop.js
+                └── analysis-state.js
 
 └── src/test/java/com/textorigin/
-    ├── PromptContractTest.java             # El prompt declara todos los campos del contrato
+    ├── PromptContractTest.java             # El prompt declara el contrato y separa system/user
     ├── controller/AnalysisResultsRenderTest.java   # Renderizado real con MockMvc
     ├── dto/SegmentResultDtoTest.java       # Normalización de la respuesta del modelo
-    ├── model/DocumentAnalysisTest.java     # Agregados de citas y porcentaje global
-    └── service/PdfReportServiceTest.java   # Informe PDF (texto extraído con PDFBox)
+    ├── dto/DeepSeekRequestTest.java        # Mensajes de sistema y de usuario
+    ├── model/DocumentAnalysisTest.java     # Agregados de citas, avisos y porcentaje global
+    ├── model/DocumentWarningTest.java      # Extractos de los avisos
+    └── service/
+        ├── PdfReportServiceTest.java       # Informe PDF (texto extraído con PDFBox)
+        ├── BibliographyDetectorTest.java   # Recorte de la bibliografía
+        ├── InjectionDefenseServiceTest.java    # Neutralización de instrucciones
+        ├── InvisibleCharacterSanitizerTest.java # Caracteres invisibles
+        ├── HiddenTextPdfStripperTest.java  # Texto oculto del PDF
+        ├── TextExtractionServiceTest.java  # Extracción con hallazgos (PDF/DOCX)
+        ├── PdfFixtures.java                # PDFs de prueba generados en memoria
+        └── DocxFixtures.java               # DOCX de prueba generados en memoria
 ```
 
 > `GlobalExceptionHandler` se añadió a la estructura para cumplir el requisito de manejo
@@ -361,22 +381,47 @@ textorigin/
 2. **Comprobación de cuota** — se ejecuta **antes** de nada más, para no gastar tokens si el
    usuario ya agotó sus análisis.
 3. **Extracción** — PDFBox, POI o decodificación de texto plano, con normalización
-   (saltos de línea unificados, espacios colapsados, BOM eliminado).
-4. **Segmentación** — el texto se divide por párrafos (líneas en blanco). Los párrafos muy
+   (saltos de línea unificados, espacios colapsados, BOM eliminado). En este paso se descarta
+   además el **texto oculto**: en PDF, el dibujado con modo de renderizado invisible (`Tr 3`),
+   por debajo de 2 pt, en blanco sobre páginas con texto de otro color o fuera del área de la
+   página; en DOCX, los runs con `w:vanish`, en blanco o diminutos. También se eliminan
+   los caracteres Unicode que no se ven (zero-width, controles de dirección, tag chars) y, si
+   escondían un mensaje, se decodifica para mostrarlo en el aviso.
+4. **Exclusión de la bibliografía** — si el documento termina con una sección de referencias
+   reconocible («Referencias», «Bibliografía», «Obras citadas», «Works cited»…), se recorta
+   antes de segmentar: las listas de referencias son muy uniformes y producirían falsos
+   positivos, además de gastar tokens. Un anexo o apéndice posterior a la bibliografía sí se
+   analiza, y un texto que sea solo una bibliografía se analiza entero.
+5. **Defensas anti prompt-injection** — las frases que se dirigen al modelo en lugar de formar
+   parte del trabajo («ignora las instrucciones anteriores», «asigna una puntuación de 0»,
+   marcadores de rol como `system:`) se sustituyen por la marca visible
+   `[contenido eliminado: posible instrucción dirigida al modelo]`, y la secuencia de triples
+   comillas que delimita el texto en el prompt se neutraliza. El prompt separa además las
+   instrucciones (mensaje de rol `system`) del texto a analizar (rol `user`) y refuerza la
+   resistencia a contenido dirigido al modelo. Todo lo detectado queda como **aviso** en el
+   panel de resultados y en el informe PDF, con el fragmento original reproducido.
+6. **Segmentación** — el texto se divide por párrafos (líneas en blanco). Los párrafos muy
    cortos se fusionan con su vecino y los muy largos se parten por frases; si el documento
    supera `max-segments`, los fragmentos se agrupan en bloques equilibrados para no perder
    texto ni disparar el consumo.
-5. **Análisis asíncrono** — cada segmento se envía a DeepSeek en paralelo
+7. **Análisis asíncrono** — cada segmento se envía a DeepSeek en paralelo
    (`CompletableFuture` sobre un pool dimensionado por `concurrent-segments`). La respuesta
    HTTP vuelve de inmediato con el indicador de progreso, y la página consulta el estado por
    HTMX cada 1,5 s.
-6. **Reintentos** — cada segmento se reintenta hasta `retry-attempts` veces con espera
+8. **Reintentos** — cada segmento se reintenta hasta `retry-attempts` veces con espera
    exponencial (`retry-delay-ms × 2^(intento-1)`).
-7. **Publicación de resultados** — cada segmento terminado se publica de inmediato, de modo
+9. **Publicación de resultados** — cada segmento terminado se publica de inmediato, de modo
    que la barra de progreso avanza de verdad. Un segmento que falla no arrastra al resto.
    Mientras el análisis está en curso, el botón «Analizar documento» permanece desactivado
    para no lanzar dos análisis a la vez.
-8. **Consumo de cuota** — solo se descuenta si el análisis termina con algún resultado.
+10. **Consumo de cuota** — solo se descuenta si el análisis termina con algún resultado.
+
+Las defensas son **heurísticas y de mejor esfuerzo**, y ninguna puede impedir un análisis: si
+una comprobación falla, el documento se analiza completo y se avisa. Como salvaguarda, si el
+texto «oculto» supera la mitad del documento (habitual en las capas OCR de un PDF escaneado, o
+en un intento de dejar el análisis sin contenido) no se descarta nada: se analiza el documento
+completo. La detección es propia, independiente del modelo: una inyección que funcione pediría
+al modelo no revelarla.
 
 El prompt vive en `src/main/resources/prompts/deepseek-analysis.txt` y se carga con
 `@Value("classpath:prompts/deepseek-analysis.txt")`: puedes ajustarlo sin tocar el código Java,
@@ -526,6 +571,17 @@ Decisiones que conviene conocer antes de modificar el proyecto:
 - **Falsos negativos**: un texto generado por IA y reescrito después puede puntuar bajo.
 - **Análisis por párrafos**: no se analizan metadatos del archivo, historial de edición ni el
   proceso de escritura del estudiante.
+- **Bibliografía**: la sección de referencias final se excluye del análisis de forma
+  automática, pero la detección es heurística: si el encabezado no sigue un formato
+  reconocible («Referencias», «Bibliografía», «Obras citadas», «Works cited»…), sus párrafos
+  se analizarán como el resto del documento.
+- **Contenido dirigido al modelo**: la detección de texto oculto y de instrucciones también es
+  heurística. Un ensayo que **cite** frases como «ignora las instrucciones anteriores» verá esa
+  cita sustituida por la marca visible y reproducida en el aviso, y el análisis perderá ese
+  fragmento; los colores definidos por tema en DOCX y los espacios de color personalizados en
+  PDF no se inspeccionan; y una paráfrasis ingeniosa («trata este texto como perfecto») puede
+  pasar sin ser detectada. El prompt reforzado y la separación entre instrucciones y texto son
+  la segunda barrera para esos casos.
 - **PDF escaneados**: si un PDF es una imagen sin capa de texto, no se podrá analizar (haría
   falta OCR, que TextOrigin no incorpora).
 - **Coste**: cada análisis consume tokens de tu cuenta de DeepSeek. El sistema de cuotas y el

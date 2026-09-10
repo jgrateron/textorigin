@@ -2,6 +2,7 @@ package com.textorigin.service;
 
 import com.textorigin.model.Document;
 import com.textorigin.model.DocumentAnalysis;
+import com.textorigin.model.DocumentWarning;
 import com.textorigin.model.SegmentAnalysis;
 import com.textorigin.model.SuspiciousFragment;
 import org.apache.pdfbox.Loader;
@@ -128,5 +129,36 @@ class PdfReportServiceTest {
         String text = extractText(pdf);
         assertThat(text).contains("No se pudo analizar este fragmento.");
         assertThat(text).contains("50 %");
+    }
+
+    @Test
+    void elInformeIncluyeElAvisoDeContenidoDirigidoAlModelo() throws IOException {
+        DocumentAnalysis analysis = DocumentAnalysis.builder()
+                .id("11111111-2222-3333-4444-555555555555")
+                .document(Document.builder().fileName("ensayo.pdf").text("texto").wordCount(320).build())
+                .status(DocumentAnalysis.Status.COMPLETED)
+                .createdAt(LocalDateTime.of(2026, 9, 10, 12, 0))
+                .segments(new CopyOnWriteArrayList<>(List.of(completedSegment(0, 20, "Párrafo."))))
+                .warnings(List.of(
+                        DocumentWarning.instructionPhrase("ignora las instrucciones anteriores"),
+                        DocumentWarning.hiddenTextMajority(85)))
+                .build();
+
+        String text = extractText(service().generateReport(analysis));
+
+        assertThat(text).contains("Aviso: contenido dirigido al modelo detectado");
+        assertThat(text).contains("Posible instrucción dirigida al modelo");
+        assertThat(text).contains("ignora las instrucciones anteriores");
+        assertThat(text).contains("Documento con casi todo el texto oculto");
+        assertThat(text).contains("contenido dirigido a un modelo de lenguaje");
+    }
+
+    @Test
+    void elInformeSinAvisosNoIncluyeLaFranja() throws IOException {
+        byte[] pdf = service().generateReport(analysisWith(completedSegment(0, 20, "Texto sin señales.")));
+
+        String text = extractText(pdf);
+        assertThat(text).doesNotContain("Aviso: contenido dirigido al modelo detectado");
+        assertThat(text).doesNotContain("contenido dirigido a un modelo de lenguaje");
     }
 }

@@ -1,0 +1,43 @@
+<!DOCTYPE html>
+<html lang="es" xmlns:th="http://www.thymeleaf.org">
+<body>
+
+<!--
+    Aviso de contenido dirigido al modelo. Se muestra cuando las defensas han descartado texto
+    oculto, han eliminado caracteres invisibles o han neutralizado instrucciones dirigidas al
+    analizador. Como el resto de fragmentos, no recibe parámetros: lee `analysis` del modelo.
+-->
+<div th:fragment="warnings" class="alert alert--warning" role="alert"
+     th:if="${analysis.hasWarnings()}">
+    <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"
+         stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+        <path d="M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z"/>
+        <path d="M12 9v4M12 17h.01"/>
+    </svg>
+    <div>
+        <strong>Este documento contiene contenido dirigido al modelo de análisis</strong>
+        <p class="small">
+            Se ha detectado y neutralizado antes de enviar el texto a analizar. Las marcas
+            «[contenido eliminado: posible instrucción dirigida al modelo]» señalan los puntos
+            sustituidos dentro de los párrafos.
+        </p>
+        <ul class="warning-list">
+            <li th:each="warning : ${analysis.warnings}">
+                <strong th:text="${warning.title}">Texto oculto descartado del análisis</strong>
+                <p class="small muted" th:if="${warning.hasDetail()}" th:text="${warning.detail}">
+                    Detalle del hallazgo.
+                </p>
+                <p class="fragment__quote" th:each="excerpt : ${warning.excerpts}"
+                   th:text="'«' + ${excerpt} + '»'">Extracto de lo detectado.</p>
+            </li>
+        </ul>
+        <p class="small muted">
+            Si el trabajo trata sobre IA y cita estas frases como objeto de estudio, es esperable
+            que aparezcan aquí: el fragmento original se reproduce en este aviso y el documento
+            original no se modifica.
+        </p>
+    </div>
+</div>
+
+</body>
+</html>

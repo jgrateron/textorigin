@@ -44,10 +44,19 @@ Flujo de un análisis, de principio a fin:
 POST /analysis/analyze  (AnalysisController)
   └─ QuotaService.checkQuota()            ← antes de gastar tokens
   └─ TextExtractionService                PDF (PDFBox) / DOCX (POI) / TXT → texto normalizado
+                                          · HiddenTextPdfStripper descarta el texto oculto del PDF
+                                          · los runs ocultos (w:vanish, blanco, diminuto) no entran
+                                          · InvisibleCharacterSanitizer quita lo que no se ve
+                                          · guarda: >50 % «oculto» (capa OCR) ⇒ se analiza completo
+  └─ BibliographyDetector.stripBibliography()   recorta la bibliografía final antes de segmentar
+  └─ InjectionDefenseService.neutralizeInstructions()  marca las frases dirigidas al modelo
   └─ TextSegmentationService              párrafos → segmentos (fusiona cortos, parte largos,
                                           agrupa si superan textorigin.analysis.max-segments)
   └─ AnalysisStorageService               análisis en memoria (ConcurrentHashMap por UUID)
+                                          · DocumentAnalysis.warnings se fija antes de save()
   └─ DeepSeekAnalysisService.analyzeAsync()   devuelve el control de inmediato
+       └─ prompt partido en system (instrucciones) y user (texto) por el marcador
+          ===TEXTO A ANALIZAR=== (PromptContractTest lo verifica)
        └─ CompletableFuture por segmento (pool "analysisExecutor", WebConfig)
        └─ al terminar: callback → QuotaService.registerConsumption()
 ```
@@ -82,6 +91,35 @@ endpoint devuelve `fragments/analysis-results`, que sustituye al indicador de pr
   escribe **el último**, de modo que leer `COMPLETED` garantiza ver todos los resultados.
 - **El prompt es un recurso externo** (`prompts/deepseek-analysis.txt`), cargado con
   `@Value("classpath:...")` y con el marcador `{text}` sustituido por `String.replace`.
+- **La bibliografía final no se analiza**: `BibliographyDetector` la recorta del texto antes
+  de crear el `Document`, de modo que estadísticas, segmentos e informe describen exactamente
+  el texto analizado. Solo reconoce encabezados completos y cortos (hasta 60 caracteres, con
+  numeración o viñeta opcional) de una lista cerrada de variantes en español e inglés; no
+  recorta si el encabezado abre el documento ni si quedarían menos caracteres que
+  `textorigin.analysis.min-text-length`, y conserva los anexos o apéndices posteriores. Al ser
+  heurístico, cualquier cambio en los patrones debe ir acompañado de sus casos en
+  `BibliographyDetectorTest`. Comparte `TextSegmentationService.cleanParagraph` con la
+  segmentación para interpretar los párrafos igual que ella.
+- **Defensas anti prompt-injection** (`InvisibleCharacterSanitizer`, `HiddenTextPdfStripper`,
+  `HiddenFormatRules`, `InjectionDefenseService`): se aplican **antes** de llamar al modelo y son
+  independientes de él, porque una inyección que funcione pediría al modelo no revelarla.
+  Invariantes: (1) ninguna defensa puede impedir un análisis — cada una va en `try/catch
+  (RuntimeException)` y, si falla, el documento se analiza completo con el aviso
+  `DocumentWarning.defenseUnavailable`; (2) la neutralización **nunca es silenciosa**: cada
+  hallazgo se reproduce en `DocumentAnalysis.warnings` (inmutable, fijado antes de `save()`) y lo
+  muestran `fragments/document-warnings.html` y la franja sin numerar del PDF; (3) la guarda de
+  proporción del 50 % evita quedarse sin texto cuando el «oculto» es una capa OCR; (4) los
+  umbrales (2 pt, blanco ≥ 0.95, ±2 pt fuera de página) y el tope de 200 caracteres por
+  sustitución son deliberadamente estrictos: cualquier cambio en los patrones o umbrales debe ir
+  con sus casos en `InjectionDefenseServiceTest` / `HiddenTextPdfStripperTest`; (5) el prompt se
+  parte en dos zonas con el marcador `===TEXTO A ANALIZAR===` (`PromptContractTest` lo verifica) y
+  las dos vías de llamada siguen funcionando: `.system(...).user(...)` en Spring AI y el mensaje
+  `Message.system` en la petición HTTP directa.
+- **El motor de extracción de PDFBox no procesa los operadores de color**: `PDFTextStripper` usa
+  `LegacyPDFStreamEngine`, que no registra `rg`/`g`/`k`, así que su estado gráfico siempre dice
+  «negro». Por eso `HiddenTextPdfStripper` los registra a mano con `addOperator(...)`; sin eso,
+  la detección de texto blanco es imposible. El motor sí trae el modo de renderizado
+  (`SetTextRenderingMode`), que es lo que hace funcionar el criterio `Tr 3`.
 - **La respuesta del modelo se sanea**: aunque se pide JSON puro, `DeepSeekAnalysisService.extractJson`
   tolera bloques Markdown y texto alrededor, y `SegmentResultDto` normaliza score (0-100), niveles
   inválidos, indicadores duplicados y el literal `"null"`. `SuspiciousFragmentDto` hace lo propio

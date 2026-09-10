@@ -2,6 +2,7 @@ package com.textorigin.service;
 
 import com.textorigin.exception.AnalysisException;
 import com.textorigin.model.DocumentAnalysis;
+import com.textorigin.model.DocumentWarning;
 import com.textorigin.model.SegmentAnalysis;
 import com.textorigin.model.SuspiciousFragment;
 import lombok.extern.slf4j.Slf4j;
@@ -38,6 +39,9 @@ import java.util.Locale;
  *   <li>Advertencias y limitaciones metodológicas.</li>
  * </ol>
  *
+ * <p>Antes de las secciones numeradas se intercala, solo si hay hallazgos, una franja de avisos
+ * anti prompt-injection con el contenido oculto o dirigido al modelo que se neutralizó.</p>
+ *
  * <p>Se usan exclusivamente las fuentes estándar Helvetica, que cubren los caracteres
  * acentuados del español mediante la codificación WinAnsi. Cualquier carácter no
  * representable (emojis, alfabetos no latinos) se sustituye por {@code ?} para que el
@@ -70,11 +74,12 @@ public class PdfReportService {
             PdfWriter writer = new PdfWriter(document, contactEmail);
             writer.writeCover(analysis);
             writer.writeExecutiveSummary(analysis);
+            writer.writeDocumentWarnings(analysis);
             writer.writeAnnotatedText(analysis);
             writer.writeSegmentTable(analysis);
             writer.writeSuspiciousFragments(analysis);
             writer.writeHumanEvidence(analysis);
-            writer.writeMethodologicalNotes();
+            writer.writeMethodologicalNotes(analysis);
             writer.finish();
 
             ByteArrayOutputStream output = new ByteArrayOutputStream();
@@ -293,6 +298,64 @@ public class PdfReportService {
                 drawText(labels[i], regular, 8.5f, x + 10, bottom + 11, NEUTRAL_700);
             }
             cursorY = bottom - 6;
+        }
+
+        // ------------------------------------------------------------------
+        // Aviso de contenido dirigido al modelo (sin numerar)
+        // ------------------------------------------------------------------
+
+        /**
+         * Franja de avisos de las defensas anti prompt-injection. Va sin numerar para no
+         * reordenar las seis secciones del informe, y solo aparece si hay hallazgos.
+         */
+        void writeDocumentWarnings(DocumentAnalysis analysis) throws IOException {
+            if (!analysis.hasWarnings()) {
+                return;
+            }
+            writeSectionTitle("Aviso: contenido dirigido al modelo detectado");
+            writeParagraph("El documento incluía contenido dirigido al analizador. Se ha neutralizado "
+                    + "antes de analizarlo y aquí se reproduce lo detectado; el documento original no se "
+                    + "ha modificado.", regular, 10f, NEUTRAL_900);
+            cursorY -= 8;
+
+            for (DocumentWarning warning : analysis.getWarnings()) {
+                writeWarningBox(warning);
+                cursorY -= 8;
+            }
+        }
+
+        private void writeWarningBox(DocumentWarning warning) throws IOException {
+            List<WarningLine> lines = new ArrayList<>();
+            for (String line : wrap(warning.getTitle(), bold, 9.5f, CONTENT_WIDTH - 24)) {
+                lines.add(new WarningLine(line, bold, 9.5f, DANGER));
+            }
+            if (warning.hasDetail()) {
+                for (String line : wrap(warning.getDetail(), regular, 9f, CONTENT_WIDTH - 24)) {
+                    lines.add(new WarningLine(line, regular, 9f, NEUTRAL_700));
+                }
+            }
+            for (String excerpt : warning.getExcerpts()) {
+                for (String line : wrap("«" + excerpt + "»", oblique, 8.5f, CONTENT_WIDTH - 34)) {
+                    lines.add(new WarningLine(line, oblique, 8.5f, NEUTRAL_700));
+                }
+            }
+
+            float height = lines.size() * 12f + 16;
+            ensureSpace(height + 10);
+            float bottom = cursorY - height;
+            fillRect(MARGIN, bottom, CONTENT_WIDTH, height, TINT_DOUBTFUL);
+            fillRect(MARGIN, bottom, 3, height, DANGER);
+
+            float lineY = cursorY - 14;
+            for (WarningLine line : lines) {
+                drawText(line.text(), line.font(), line.size(), MARGIN + 12, lineY, line.color());
+                lineY -= 12f;
+            }
+            cursorY = bottom - 4;
+        }
+
+        /** Línea de un aviso, con su tipografía y color. */
+        private record WarningLine(String text, PDFont font, float size, float[] color) {
         }
 
         // ------------------------------------------------------------------
@@ -592,7 +655,7 @@ public class PdfReportService {
         // Sección 6: advertencias metodológicas
         // ------------------------------------------------------------------
 
-        void writeMethodologicalNotes() throws IOException {
+        void writeMethodologicalNotes(DocumentAnalysis analysis) throws IOException {
             writeSectionTitle("6. Advertencias y limitaciones metodológicas");
 
             writeParagraph("Este informe es orientativo y no constituye prueba de uso de IA. "
@@ -612,6 +675,11 @@ public class PdfReportService {
                     + "automáticamente unas horas después del análisis.");
             writeBullet("Uso recomendado: utilizar el informe como punto de partida para un diálogo con el "
                     + "estudiante sobre su proceso de escritura, nunca como veredicto automático.");
+            if (analysis.hasWarnings()) {
+                writeBullet("Este documento incluía contenido dirigido a un modelo de lenguaje (texto oculto, "
+                        + "caracteres invisibles o instrucciones explícitas). Se ha neutralizado antes de "
+                        + "analizarlo y se detalla al principio del informe.");
+            }
 
             cursorY -= 8;
             writeParagraph("Para cualquier duda sobre la interpretación de este informe, escribe a "

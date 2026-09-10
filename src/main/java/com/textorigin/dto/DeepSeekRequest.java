@@ -78,18 +78,40 @@ public class DeepSeekRequest {
     /**
      * Construye la petición de análisis de un segmento concreto.
      *
+     * <p>Las instrucciones viajan como mensaje de sistema y el texto del segmento como mensaje
+     * de usuario: separar ambos roles es la primera barrera frente al contenido del documento
+     * que intenta pasar por instrucciones. Si no hay prompt de sistema, se envía solo el
+     * mensaje de usuario.</p>
+     *
+     * @param model         modelo a invocar
+     * @param systemPrompt  instrucciones del analista, o {@code null} para omitirlas
+     * @param userPrompt    texto a analizar, ya sustituido en la plantilla
+     * @param temperature   temperatura de muestreo
+     * @return la petición lista para serializar
+     */
+    public static DeepSeekRequest forPrompt(String model, String systemPrompt, String userPrompt,
+                                            Double temperature) {
+        List<Message> messages = systemPrompt == null || systemPrompt.isBlank()
+                ? List.of(Message.user(userPrompt))
+                : List.of(Message.system(systemPrompt), Message.user(userPrompt));
+        return DeepSeekRequest.builder()
+                .model(model)
+                .messages(messages)
+                .temperature(temperature)
+                .stream(false)
+                .responseFormat(Map.of("type", "json_object"))
+                .build();
+    }
+
+    /**
+     * Construye la petición sin mensaje de sistema.
+     *
      * @param model       modelo a invocar
      * @param prompt      prompt completo, ya sustituido el texto del segmento
      * @param temperature temperatura de muestreo
      * @return la petición lista para serializar
      */
     public static DeepSeekRequest forPrompt(String model, String prompt, Double temperature) {
-        return DeepSeekRequest.builder()
-                .model(model)
-                .messages(List.of(Message.user(prompt)))
-                .temperature(temperature)
-                .stream(false)
-                .responseFormat(Map.of("type", "json_object"))
-                .build();
+        return forPrompt(model, null, prompt, temperature);
     }
 }

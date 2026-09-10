@@ -93,8 +93,11 @@ public class TextSegmentationService {
     /**
      * Limpia un párrafo: convierte los saltos de línea internos (propios del ajuste de línea
      * de PDF y DOCX) en espacios y colapsa los espacios repetidos.
+     *
+     * <p>La comparte {@link BibliographyDetector} para interpretar los párrafos igual que la
+     * segmentación.</p>
      */
-    private String cleanParagraph(String raw) {
+    public static String cleanParagraph(String raw) {
         return raw.replaceAll("[ \\t]*\\n[ \\t]*", " ")
                 .replaceAll(" {2,}", " ")
                 .strip();

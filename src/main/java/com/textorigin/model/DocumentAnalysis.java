@@ -58,6 +58,14 @@ public class DocumentAnalysis {
     @Builder.Default
     private List<SegmentAnalysis> segments = new CopyOnWriteArrayList<>();
 
+    /**
+     * Avisos de las defensas anti prompt-injection: texto oculto descartado, caracteres
+     * invisibles eliminados e instrucciones dirigidas al modelo neutralizadas. Se fijan antes de
+     * guardar el análisis y son inmutables; los muestran el panel de resultados y el informe PDF.
+     */
+    @Builder.Default
+    private List<DocumentWarning> warnings = List.of();
+
     /** Mensaje de error global, si el análisis no pudo completarse. */
     private String errorMessage;
 
@@ -106,6 +114,16 @@ public class DocumentAnalysis {
     /** Número de segmentos que no pudieron analizarse. */
     public int getErrorCount() {
         return countByCategory(SegmentAnalysis.Category.ERROR);
+    }
+
+    /** Indica si hay avisos de contenido dirigido al modelo que mostrar al profesorado. */
+    public boolean hasWarnings() {
+        return warnings != null && !warnings.isEmpty();
+    }
+
+    /** Número de avisos de las defensas anti prompt-injection. */
+    public int getWarningCount() {
+        return warnings == null ? 0 : warnings.size();
     }
 
     private int countByCategory(SegmentAnalysis.Category category) {
