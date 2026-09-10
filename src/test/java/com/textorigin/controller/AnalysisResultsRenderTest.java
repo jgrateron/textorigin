@@ -126,6 +126,29 @@ class AnalysisResultsRenderTest {
     }
 
     @Test
+    void elPanelDeProgresoSondeaCadaSegundoYMedioSinDisparadorDeCarga() throws Exception {
+        String id = UUID.randomUUID().toString();
+        seed(DocumentAnalysis.builder()
+                .id(id)
+                .document(Document.builder().fileName("ensayo.pdf").text("texto").wordCount(320).build())
+                .status(DocumentAnalysis.Status.PENDING)
+                .createdAt(LocalDateTime.now())
+                .segments(new CopyOnWriteArrayList<>(List.of(SegmentAnalysis.builder()
+                        .index(0)
+                        .text("Un párrafo todavía pendiente.")
+                        .build())))
+                .build());
+
+        // Sin «load»: htmx lo re-dispara al insertar el fragmento, y como el panel se sustituye
+        // a sí mismo cada 1,5 s, el sondeo se convertiría en un bucle de peticiones.
+        mockMvc.perform(get("/analysis/" + id + "/status"))
+                .andExpect(status().isOk())
+                .andExpect(content().string(containsString("hx-trigger=\"every 1500ms\"")))
+                .andExpect(content().string(not(containsString("load,"))))
+                .andExpect(content().string(containsString("hx-preserve=\"true\"")));
+    }
+
+    @Test
     void laPaginaDeResultadosMuestraElAvisoDeContenidoDirigidoAlModelo() throws Exception {
         String id = UUID.randomUUID().toString();
         seed(DocumentAnalysis.builder()

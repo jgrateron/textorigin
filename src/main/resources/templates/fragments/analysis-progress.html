@@ -6,14 +6,21 @@
     Indicador de progreso. Se consulta a sí mismo por HTMX cada 1,5 s y se sustituye por el
     fragmento de resultados en cuanto el análisis termina (el sondeo se detiene solo, porque
     el elemento que lo lanzaba desaparece del DOM).
+
+    El trigger NO lleva «load»: htmx lo vuelve a disparar cada vez que inserta el fragmento en
+    el DOM, así que en un fragmento que se sustituye a sí mismo provocaría un bucle de
+    peticiones (y reiniciaría la animación del spinner en cada respuesta). Con «every» a secas
+    el sondeo es el previsto: cada 1,5 s.
 -->
 <section th:fragment="progress" class="card progress-panel"
          th:attr="hx-get=@{/analysis/{id}/status(id=${analysis.id})}"
-         hx-trigger="load, every 1500ms"
+         hx-trigger="every 1500ms"
          hx-swap="outerHTML">
 
     <div class="progress-panel__head">
-        <span class="spinner spinner--lg" aria-hidden="true"></span>
+        <!-- hx-preserve mantiene este nodo entre sondeos, para que el giro no se reinicie -->
+        <span id="progress-spinner" class="spinner spinner--lg" hx-preserve="true"
+              aria-hidden="true"></span>
         <div>
             <h2 class="progress-panel__title">Analizando el documento…</h2>
             <p class="muted small">
