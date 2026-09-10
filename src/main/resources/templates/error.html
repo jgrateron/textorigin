@@ -1,0 +1,81 @@
+<!DOCTYPE html>
+<html lang="es" xmlns:th="http://www.thymeleaf.org">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Error · TextOrigin</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link rel="stylesheet"
+          href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Source+Serif+4:opsz,wght@8..60,400;8..60,600&display=swap">
+    <link rel="stylesheet" th:href="@{/css/textorigin.css}">
+</head>
+<body class="error-page">
+
+<!-- ============================ Cabecera ============================ -->
+<header class="site-header">
+    <div class="container site-header__inner">
+        <a class="brand" th:href="@{/}">
+            <span class="brand__logo" aria-hidden="true">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"
+                     stroke-linecap="round" stroke-linejoin="round">
+                    <path d="M4 5.5A1.5 1.5 0 015.5 4H10l2 2.5h6.5A1.5 1.5 0 0120 8v10a1.5 1.5 0 01-1.5 1.5h-13A1.5 1.5 0 014 18z"/>
+                    <path d="M9.5 14.5l2-2 2 2 2.5-3"/>
+                </svg>
+            </span>
+            <span class="brand__text">
+                <span class="brand__name">TextOrigin</span>
+                <span class="brand__tagline">Identifica el origen de un texto. Decide con criterio.</span>
+            </span>
+        </a>
+    </div>
+</header>
+
+<main class="container">
+
+    <!--
+        Fragmento reutilizable: las peticiones de HTMX reciben solo este bloque y lo insertan
+        donde estaba el formulario, manteniendo el estilo de la aplicación.
+    -->
+    <!--
+        Este bloque lo renderiza el GlobalExceptionHandler con el código, el título, el mensaje
+        y el correo de contacto del error concreto.
+    -->
+    <section th:fragment="content" class="card error-card" role="alert">
+        <span class="error-card__icon" aria-hidden="true">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"
+                 stroke-linecap="round" stroke-linejoin="round">
+                <path d="M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z"/>
+                <path d="M12 9v4M12 17h.01"/>
+            </svg>
+        </span>
+
+        <p class="error-card__code" th:text="'Error ' + ${statusCode}">Error 500</p>
+        <h1 class="error-card__title" th:text="${title}">Algo ha ido mal</h1>
+        <p class="error-card__message" th:text="${message}">Se ha producido un error.</p>
+        <p class="error-card__detail muted" th:if="${detail}" th:text="${detail}">Detalle adicional.</p>
+
+        <div class="error-card__actions">
+            <a class="btn btn--primary" th:href="@{/}">Volver al inicio</a>
+            <a class="btn btn--ghost" th:href="@{'mailto:' + ${contactEmail}}"
+               th:text="${contactEmail}">contacto@textorigin.com</a>
+        </div>
+    </section>
+
+</main>
+
+<!-- ============================ Pie ============================ -->
+<footer class="site-footer">
+    <div class="container site-footer__inner">
+        <p class="site-footer__notice">
+            <strong>TextOrigin es una herramienta orientativa.</strong>
+            Sus resultados no constituyen prueba de uso de IA.
+        </p>
+        <p class="muted small">
+            Contacto: <a href="mailto:contacto@textorigin.com">contacto@textorigin.com</a>
+        </p>
+    </div>
+</footer>
+
+</body>
+</html>

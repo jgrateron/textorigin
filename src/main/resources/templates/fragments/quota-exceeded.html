@@ -1,0 +1,31 @@
+<!DOCTYPE html>
+<html lang="es" xmlns:th="http://www.thymeleaf.org">
+<body>
+
+<!-- Bloque mostrado al agotar la cuota, tanto en sesión como por IP. -->
+<section th:fragment="content" class="card quota-exceeded" role="alert">
+    <span class="quota-exceeded__icon" aria-hidden="true">
+        <svg viewBox="0 0 24 24" fill="currentColor">
+            <rect x="6" y="4" width="4" height="16" rx="1.2"/>
+            <rect x="14" y="4" width="4" height="16" rx="1.2"/>
+        </svg>
+    </span>
+
+    <h2 class="quota-exceeded__title" th:text="${quotaException.title}">Límite alcanzado</h2>
+    <p class="quota-exceeded__message" th:text="${quotaException.userMessage}">
+        Has utilizado todos los análisis disponibles.
+    </p>
+
+    <p class="quota-exceeded__contact">
+        ¿Necesitas más análisis?
+        <a th:href="@{'mailto:' + ${contactEmail}}" th:text="${contactEmail}">contacto@textorigin.com</a>
+    </p>
+    <p class="muted small">
+        Escríbenos indicando cuántos análisis necesitas y para qué los vas a usar.
+    </p>
+
+    <a class="btn btn--ghost" th:href="@{/}">Volver al inicio</a>
+</section>
+
+</body>
+</html>

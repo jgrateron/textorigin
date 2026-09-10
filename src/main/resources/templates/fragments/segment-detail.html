@@ -1,0 +1,89 @@
+<!DOCTYPE html>
+<html lang="es" xmlns:th="http://www.thymeleaf.org">
+<body>
+
+<!--
+    Detalle de un segmento. Se usa en dos contextos:
+      · dentro de la lista expandible de resultados (variable 'segment' del bucle)
+      · como respuesta HTMX al pulsar un párrafo, donde el controlador envía 'segment' en el modelo
+-->
+<article th:fragment="detail" class="segment-detail">
+
+    <header class="segment-detail__head">
+        <span class="segment-detail__label" th:text="${segment.label}">Segmento 1</span>
+        <span class="badge" th:classappend="${segment.cssClass}"
+              th:text="${segment.categoryLabel} + ' · ' + ${segment.scoreLabel}">Dudoso · 55/100</span>
+    </header>
+
+    <p class="segment-detail__text" th:text="${segment.text}">Texto del segmento.</p>
+
+    <!-- Segmento que no pudo analizarse -->
+    <div class="alert alert--warning" th:if="${segment.hasError()}">
+        <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"
+             stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+            <path d="M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z"/>
+            <path d="M12 9v4M12 17h.01"/>
+        </svg>
+        <p th:text="${segment.errorMessage}">No se pudo analizar este fragmento.</p>
+    </div>
+
+    <!-- Resultado disponible -->
+    <th:block th:if="${segment.completed}">
+        <dl class="metric-grid">
+            <div>
+                <dt>Score</dt>
+                <dd th:text="${segment.scoreValue} + '/100'">55/100</dd>
+            </div>
+            <div>
+                <dt>Perplejidad</dt>
+                <dd th:text="${segment.perplexityLabel}">medio</dd>
+            </div>
+            <div>
+                <dt>Burstiness</dt>
+                <dd th:text="${segment.burstinessLabel}">medio</dd>
+            </div>
+            <div>
+                <dt>Tiempo</dt>
+                <dd th:text="${segment.formattedDuration != ''} ? ${segment.formattedDuration} : '—'">—</dd>
+            </div>
+        </dl>
+
+        <div class="segment-detail__block" th:if="${segment.hasIndicators()}">
+            <h4 class="segment-detail__subtitle">Indicadores detectados</h4>
+            <ul class="tag-list">
+                <li th:each="indicator : ${segment.indicators}" th:text="${indicator}">Indicador</li>
+            </ul>
+        </div>
+
+        <div class="segment-detail__block">
+            <h4 class="segment-detail__subtitle">Explicación</h4>
+            <p th:text="${segment.explanation}">Explicación del análisis.</p>
+        </div>
+
+        <div class="alert alert--warning" th:if="${segment.hasFalsePositiveWarning()}">
+            <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"
+                 stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                <path d="M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z"/>
+                <path d="M12 9v4M12 17h.01"/>
+            </svg>
+            <div>
+                <strong>Posible falso positivo</strong>
+                <p th:text="${segment.falsePositiveWarning}">Advertencia.</p>
+            </div>
+        </div>
+
+        <p class="muted small">
+            Este resultado es orientativo: no demuestra autoría y debe interpretarse junto al
+            proceso de escritura del estudiante.
+        </p>
+    </th:block>
+
+    <!-- Segmento aún en proceso -->
+    <p class="muted" th:if="${segment.pending}">
+        <span class="spinner spinner--sm" aria-hidden="true"></span>
+        Este segmento todavía se está analizando.
+    </p>
+</article>
+
+</body>
+</html>

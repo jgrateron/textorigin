@@ -1,0 +1,30 @@
+# =============================================================================
+#  TextOrigin · Exclusión de contexto de Docker
+#  Todo lo que aparece aquí NO viaja al daemon de Docker al construir la imagen.
+# =============================================================================
+
+# Artefactos de compilación (se generan dentro de la imagen)
+target/
+
+# Control de versiones y metadatos del repositorio
+.git/
+.gitignore
+.github/
+
+# Secretos: la clave se pasa como variable de entorno en tiempo de ejecución
+.env
+.env.*
+!.env.example
+
+# Documentación y archivos de configuración local
+README.md
+*.md
+Makefile
+docker-compose.yml
+
+# Entornos de desarrollo
+.idea/
+.vscode/
+*.iml
+*.log
+.DS_Store

@@ -1,0 +1,39 @@
+# =============================================================================
+#  TextOrigin · Archivos que NUNCA deben subirse al repositorio
+# =============================================================================
+
+# Secretos: la clave de DeepSeek se pasa como variable de entorno.
+# Si copias .env.example a .env para Docker Compose, este archivo se queda fuera.
+.env
+.env.local
+.env.*.local
+!.env.example
+
+# Artefactos de compilación de Maven
+target/
+*.jar
+*.war
+*.class
+
+# Registros
+*.log
+logs/
+
+# Entornos de desarrollo
+.idea/
+.vscode/
+*.iml
+*.ipr
+*.iws
+.classpath
+.project
+.settings/
+nbproject/
+
+# Sistema operativo
+.DS_Store
+Thumbs.db
+
+# Docker (por si se construye con salida local)
+*.tar
+*.tar.gz

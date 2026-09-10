@@ -1,0 +1,48 @@
+<!DOCTYPE html>
+<html lang="es" xmlns:th="http://www.thymeleaf.org">
+<body>
+
+<!--
+    Indicador de progreso. Se consulta a sí mismo por HTMX cada 1,5 s y se sustituye por el
+    fragmento de resultados en cuanto el análisis termina (el sondeo se detiene solo, porque
+    el elemento que lo lanzaba desaparece del DOM).
+-->
+<section th:fragment="progress" class="card progress-panel"
+         th:attr="hx-get=@{/analysis/{id}/status(id=${analysis.id})}"
+         hx-trigger="load, every 1500ms"
+         hx-swap="outerHTML">
+
+    <div class="progress-panel__head">
+        <span class="spinner spinner--lg" aria-hidden="true"></span>
+        <div>
+            <h2 class="progress-panel__title">Analizando el documento…</h2>
+            <p class="muted small">
+                <span th:text="${analysis.documentName}">documento.pdf</span>
+                ·
+                <span th:text="${analysis.totalCount} + ' segmentos'">0 segmentos</span>
+                ·
+                <span th:text="${analysis.document != null} ? ${analysis.document.wordCount} + ' palabras' : ''"></span>
+            </p>
+        </div>
+    </div>
+
+    <div class="progress-bar" role="progressbar"
+         th:attr="aria-valuenow=${analysis.progressPercent},aria-valuemin=0,aria-valuemax=100">
+        <div class="progress-bar__fill" th:style="'width:' + ${analysis.progressPercent} + '%'"></div>
+    </div>
+
+    <p class="progress-panel__count">
+        <strong th:text="${analysis.processedCount}">0</strong>
+        de
+        <span th:text="${analysis.totalCount}">0</span>
+        segmentos analizados
+    </p>
+
+    <p class="muted small">
+        El análisis se ejecuta en segundo plano y puede tardar unos segundos por párrafo.
+        No cierres esta pestaña si quieres ver el resultado.
+    </p>
+</section>
+
+</body>
+</html>

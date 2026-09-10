@@ -1,0 +1,134 @@
+<!DOCTYPE html>
+<html lang="es" xmlns:th="http://www.thymeleaf.org">
+<body>
+
+<!--
+    Resultados completos del análisis. Se renderiza de tres formas:
+      · como bloque principal de la página /analysis/{id}
+      · como respuesta HTMX del sondeo de estado, cuando el análisis termina
+        (con withQuota=true añade el indicador de cuota con hx-swap-oob)
+-->
+<section th:fragment="results" class="results">
+
+    <!--
+        Al terminar el análisis, este elemento invisible pide el indicador de cuota actualizado
+        y lo sustituye en la página (el contador solo se descuenta si el análisis tuvo éxito).
+    -->
+    <div th:if="${analysis.completed}" hidden
+         th:attr="hx-get=@{/quota}"
+         hx-trigger="load"
+         hx-target="#quota-indicator"
+         hx-swap="outerHTML"></div>
+
+    <!-- ==================== Análisis fallido ==================== -->
+    <div class="alert alert--danger" th:if="${analysis.failed}" role="alert">
+        <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"
+             stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+            <path d="M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z"/>
+            <path d="M12 9v4M12 17h.01"/>
+        </svg>
+        <div>
+            <strong>No se pudo completar el análisis</strong>
+            <p th:text="${analysis.errorMessage}">Error al contactar con el servicio de análisis.</p>
+            <p class="small muted">
+                No se ha consumido ningún análisis de tu cuota. Puedes volver a intentarlo.
+            </p>
+        </div>
+    </div>
+
+    <!-- ==================== Veredicto global ==================== -->
+    <div class="results__banner" th:if="${analysis.completed}" th:classappend="${analysis.globalCssClass}">
+        <div class="results__banner-text">
+            <h2 class="results__banner-title" th:text="${analysis.verdict}">Veredicto</h2>
+            <p class="results__banner-hint" th:text="${analysis.verdictHint}">Matiz del veredicto.</p>
+        </div>
+        <div class="results__banner-actions">
+            <a class="btn btn--primary" th:href="@{/report/{id}(id=${analysis.id})}">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"
+                     stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                    <path d="M12 4v11"/>
+                    <path d="M8 11l4 4 4-4"/>
+                    <path d="M4 19h16"/>
+                </svg>
+                Descargar informe PDF
+            </a>
+            <a class="btn btn--ghost" th:href="@{/}">Analizar otro documento</a>
+        </div>
+    </div>
+
+    <!-- ==================== Texto y resumen ==================== -->
+    <div class="results__grid">
+
+        <!-- Panel izquierdo: texto resaltado -->
+        <section class="card text-panel">
+            <header class="text-panel__head">
+                <h3 class="card__title">Texto analizado</h3>
+                <p class="muted small">Pulsa sobre un párrafo para ver su análisis detallado.</p>
+                <ul class="legend">
+                    <li><span class="legend__swatch legend__swatch--human"></span>Probablemente humano (&lt;40)</li>
+                    <li><span class="legend__swatch legend__swatch--doubtful"></span>Dudoso (40-70)</li>
+                    <li><span class="legend__swatch legend__swatch--ai"></span>Alta sospecha de IA (&gt;70)</li>
+                </ul>
+            </header>
+
+            <div class="text-panel__body">
+                <p class="segment" th:each="segment : ${analysis.segments}"
+                   th:classappend="${segment.cssClass}"
+                   th:attr="hx-get=@{/analysis/{id}/segment/{index}(id=${analysis.id}, index=${segment.index})}"
+                   hx-target="#segment-detail"
+                   hx-swap="innerHTML"
+                   hx-indicator="#segment-detail">
+                    <span class="segment__badge" th:text="${segment.scoreLabel}">—</span>
+                    <span class="segment__text" th:text="${segment.text}">Párrafo del documento.</span>
+                </p>
+            </div>
+        </section>
+
+        <!-- Panel derecho: resumen y lista de segmentos -->
+        <aside class="results__side">
+            <div th:replace="~{fragments/score-summary :: summary}"></div>
+
+            <section class="card segment-list">
+                <h3 class="card__title">Detalle por segmento</h3>
+                <p class="muted small">Despliega un segmento o pulsa sobre el texto para verlo aquí.</p>
+
+                <details class="segment-item" th:each="segment : ${analysis.segments}">
+                    <summary class="segment-item__summary">
+                        <span class="segment-item__label" th:text="${segment.label}">Segmento 1</span>
+                        <span class="badge badge--sm" th:classappend="${segment.cssClass}"
+                              th:text="${segment.scoreLabel}">—</span>
+                    </summary>
+                    <div th:replace="~{fragments/segment-detail :: detail}"></div>
+                </details>
+            </section>
+
+            <section class="card segment-detail-panel" id="segment-detail">
+                <h3 class="card__title">Detalle del segmento</h3>
+                <p class="muted small">
+                    Pulsa sobre cualquier párrafo del texto para ver aquí sus indicadores,
+                    la explicación y las advertencias de falso positivo.
+                </p>
+            </section>
+        </aside>
+    </div>
+
+    <!-- ==================== Aviso metodológico ==================== -->
+    <div class="notice" role="note">
+        <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"
+             stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+            <path d="M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z"/>
+            <path d="M12 9v4M12 17h.01"/>
+        </svg>
+        <div>
+            <strong>Este análisis es orientativo, no constituye prueba de uso de IA.</strong>
+            <p>
+                Los resultados pueden contener falsos positivos, especialmente en escritores no nativos
+                o estilos muy formales. Úsalos como punto de partida para dialogar con el estudiante
+                sobre su proceso de escritura.
+            </p>
+        </div>
+    </div>
+</section>
+
+</body>
+</html>

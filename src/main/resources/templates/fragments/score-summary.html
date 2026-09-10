@@ -1,0 +1,58 @@
+<!DOCTYPE html>
+<html lang="es" xmlns:th="http://www.thymeleaf.org">
+<body>
+
+<!-- Resumen numérico del análisis: score global, contadores por categoría y metadatos. -->
+<section th:fragment="summary" class="card score-summary">
+    <h3 class="card__title">Resumen del análisis</h3>
+
+    <div class="score-dial" th:classappend="${analysis.globalCssClass}">
+        <span class="score-dial__value"
+              th:text="${analysis.globalScoreRounded != null} ? ${analysis.globalScoreRounded} : '—'">—</span>
+        <span class="score-dial__label">score global /100</span>
+    </div>
+
+    <p class="score-summary__verdict" th:text="${analysis.verdict}">Veredicto orientativo</p>
+    <p class="muted small" th:if="${analysis.verdictHint != ''}" th:text="${analysis.verdictHint}"></p>
+
+    <ul class="counter-list">
+        <li>
+            <span class="dot dot--green" aria-hidden="true"></span>
+            <span class="counter-list__label">Probablemente humano</span>
+            <strong th:text="${analysis.humanCount}">0</strong>
+        </li>
+        <li>
+            <span class="dot dot--amber" aria-hidden="true"></span>
+            <span class="counter-list__label">Dudoso</span>
+            <strong th:text="${analysis.doubtfulCount}">0</strong>
+        </li>
+        <li>
+            <span class="dot dot--red" aria-hidden="true"></span>
+            <span class="counter-list__label">Alta sospecha de IA</span>
+            <strong th:text="${analysis.aiCount}">0</strong>
+        </li>
+        <li th:if="${analysis.errorCount > 0}">
+            <span class="dot dot--gray" aria-hidden="true"></span>
+            <span class="counter-list__label">Sin analizar</span>
+            <strong th:text="${analysis.errorCount}">0</strong>
+        </li>
+    </ul>
+
+    <dl class="meta-list">
+        <div>
+            <dt>Documento</dt>
+            <dd th:text="${analysis.documentName}">documento.pdf</dd>
+        </div>
+        <div>
+            <dt>Segmentos</dt>
+            <dd th:text="${analysis.totalCount}">0</dd>
+        </div>
+        <div>
+            <dt>Duración</dt>
+            <dd th:text="${analysis.formattedDuration != ''} ? ${analysis.formattedDuration} : '—'">—</dd>
+        </div>
+    </dl>
+</section>
+
+</body>
+</html>

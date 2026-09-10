@@ -1,0 +1,75 @@
+<!DOCTYPE html>
+<html lang="es" xmlns:th="http://www.thymeleaf.org">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title th:text="'Resultados · ' + ${analysis.documentName} + ' · TextOrigin'">Resultados · TextOrigin</title>
+    <meta name="robots" content="noindex">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link rel="stylesheet"
+          href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Source+Serif+4:opsz,wght@8..60,400;8..60,600&display=swap">
+    <link rel="stylesheet" th:href="@{/css/textorigin.css}">
+    <script th:src="@{/webjars/htmx.org/1.9.12/dist/htmx.min.js}" defer></script>
+    <script th:src="@{/js/dragdrop.js}" defer></script>
+</head>
+<body>
+
+<!-- ============================ Cabecera ============================ -->
+<header class="site-header">
+    <div class="container site-header__inner">
+        <a class="brand" th:href="@{/}">
+            <span class="brand__logo" aria-hidden="true">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"
+                     stroke-linecap="round" stroke-linejoin="round">
+                    <path d="M4 5.5A1.5 1.5 0 015.5 4H10l2 2.5h6.5A1.5 1.5 0 0120 8v10a1.5 1.5 0 01-1.5 1.5h-13A1.5 1.5 0 014 18z"/>
+                    <path d="M9.5 14.5l2-2 2 2 2.5-3"/>
+                </svg>
+            </span>
+            <span class="brand__text">
+                <span class="brand__name">TextOrigin</span>
+                <span class="brand__tagline">Identifica el origen de un texto. Decide con criterio.</span>
+            </span>
+        </a>
+        <span class="pill pill--soft">Análisis orientativo</span>
+    </div>
+</header>
+
+<main class="container">
+
+    <nav class="breadcrumb" aria-label="Navegación">
+        <a class="link-back" th:href="@{/}">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+                 stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                <path d="M15 18l-6-6 6-6"/>
+            </svg>
+            Analizar otro documento
+        </a>
+    </nav>
+
+    <!-- ============================ Resultados ============================ -->
+    <div th:replace="~{fragments/analysis-results :: results}"></div>
+
+    <!-- Indicador de cuota, que se refresca solo al terminar cada análisis -->
+    <section class="analysis-extra">
+        <div th:replace="~{fragments/quota-indicator :: indicator}"></div>
+    </section>
+
+</main>
+
+<!-- ============================ Pie ============================ -->
+<footer class="site-footer">
+    <div class="container site-footer__inner">
+        <p class="site-footer__notice">
+            <strong>TextOrigin es una herramienta orientativa.</strong>
+            Sus resultados no constituyen prueba de uso de IA y pueden incluir falsos positivos,
+            especialmente en escritores no nativos o estilos muy formales.
+        </p>
+        <p class="muted small">
+            Contacto: <a th:href="@{'mailto:' + ${contactEmail}}" th:text="${contactEmail}">contacto@textorigin.com</a>
+        </p>
+    </div>
+</footer>
+
+</body>
+</html>

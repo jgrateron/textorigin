@@ -1,0 +1,66 @@
+# =============================================================================
+#  TextOrigin · Docker Compose
+#
+#  La clave de DeepSeek NO se escribe en este archivo: se lee de la variable de
+#  entorno DEEPSEEK_API_KEY o del archivo .env (que está en .gitignore).
+#
+#  Puesta en marcha:
+#     cp .env.example .env      # y edita .env con tu clave
+#     make up                   # o:  docker compose up -d --build
+#
+#     Una vez arrancado:  http://localhost:8080
+#
+#  Para usar la imagen publicada en Docker Hub sin construir en local:
+#     docker compose pull && docker compose up -d
+# =============================================================================
+
+services:
+  textorigin:
+    # Imagen publicada (cuenta de Docker Hub: jgrateron)
+    image: jgrateron/textorigin:${TEXTOORIGIN_VERSION:-latest}
+
+    # Permite construir la imagen en local con `docker compose up --build`.
+    # Si solo quieres descargarla de Docker Hub, usa `docker compose pull`.
+    build:
+      context: .
+      dockerfile: Dockerfile
+
+    container_name: textorigin
+    restart: unless-stopped
+
+    ports:
+      - "${TEXTOORIGIN_PORT:-8080}:8080"
+
+    environment:
+      # Obligatoria. Si no está definida, Compose se detiene con este mensaje
+      # en lugar de arrancar un contenedor que no podría analizar nada.
+      DEEPSEEK_API_KEY: ${DEEPSEEK_API_KEY:?Define DEEPSEEK_API_KEY en el entorno o en el archivo .env}
+
+      # Ajustes opcionales (los valores entre llaves son los predeterminados).
+      # Los nombres de las variables siguen la convención de Spring Boot:
+      # textorigin.quota.max-per-session  ->  TEXTOORIGIN_QUOTA_MAX_PER_SESSION
+      TEXTOORIGIN_QUOTA_MAX_PER_SESSION: ${MAX_PER_SESSION:-3}
+      TEXTOORIGIN_QUOTA_MAX_PER_IP_PER_DAY: ${MAX_PER_IP_PER_DAY:-10}
+      TEXTOORIGIN_ANALYSIS_CONCURRENT_SEGMENTS: ${CONCURRENT_SEGMENTS:-5}
+      SPRING_AI_OPENAI_CHAT_OPTIONS_MODEL: ${DEEPSEEK_MODEL:-deepseek-chat}
+
+    healthcheck:
+      test: ["CMD-SHELL", "wget -qO- http://127.0.0.1:8080/health > /dev/null 2>&1 || exit 1"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 25s
+
+    # Límite de memoria del contenedor. La JVM lo respeta automáticamente y
+    # ajusta su heap al 75 % de este valor (ver JAVA_OPTS en el Dockerfile).
+    deploy:
+      resources:
+        limits:
+          memory: 768M
+
+    # Los registros no crecen sin control en el disco del anfitrión.
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"

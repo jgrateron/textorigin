@@ -1,0 +1,124 @@
+<!DOCTYPE html>
+<html lang="es" xmlns:th="http://www.thymeleaf.org">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>TextOrigin · Identifica el origen de un texto</title>
+    <meta name="description"
+          content="Analiza si un texto fue generado por IA. Herramienta orientativa para profesorado.">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link rel="stylesheet"
+          href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Source+Serif+4:opsz,wght@8..60,400;8..60,600&display=swap">
+    <link rel="stylesheet" th:href="@{/css/textorigin.css}">
+    <script th:src="@{/webjars/htmx.org/1.9.12/dist/htmx.min.js}" defer></script>
+    <script th:src="@{/js/dragdrop.js}" defer></script>
+</head>
+<body>
+
+<!-- ============================ Cabecera ============================ -->
+<header class="site-header">
+    <div class="container site-header__inner">
+        <a class="brand" th:href="@{/}">
+            <span class="brand__logo" aria-hidden="true">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"
+                     stroke-linecap="round" stroke-linejoin="round">
+                    <path d="M4 5.5A1.5 1.5 0 015.5 4H10l2 2.5h6.5A1.5 1.5 0 0120 8v10a1.5 1.5 0 01-1.5 1.5h-13A1.5 1.5 0 014 18z"/>
+                    <path d="M9.5 14.5l2-2 2 2 2.5-3"/>
+                </svg>
+            </span>
+            <span class="brand__text">
+                <span class="brand__name">TextOrigin</span>
+                <span class="brand__tagline">Identifica el origen de un texto. Decide con criterio.</span>
+            </span>
+        </a>
+        <span class="pill pill--soft">Análisis orientativo</span>
+    </div>
+</header>
+
+<main class="container">
+
+    <!-- ============================ Presentación ============================ -->
+    <section class="hero">
+        <h1 class="hero__title">¿Este texto lo ha escrito una persona?</h1>
+        <p class="hero__subtitle">
+            Sube un ensayo, un artículo o un trabajo y obtén un mapa párrafo a párrafo con indicios de
+            generación automática. La herramienta te ayuda a decidir; la valoración final es tuya.
+        </p>
+    </section>
+
+    <!-- ============================ Formulario y panel lateral ============================ -->
+    <div class="home-grid">
+        <section th:replace="~{fragments/upload-form :: form}"></section>
+
+        <aside class="home-side">
+            <div th:replace="~{fragments/quota-indicator :: indicator}"></div>
+
+            <section class="card info-card">
+                <h3 class="card__title">Formatos admitidos</h3>
+                <ul class="icon-list">
+                    <li>
+                        <svg class="icon icon--pdf" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                             stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                            <path d="M14 3H7a1.8 1.8 0 00-1.8 1.8v14.4A1.8 1.8 0 007 21h10a1.8 1.8 0 001.8-1.8V8z"/>
+                            <path d="M14 3v5h4.8"/>
+                        </svg>
+                        <span><strong>PDF</strong> · documentos exportados o escaneados con texto</span>
+                    </li>
+                    <li>
+                        <svg class="icon icon--docx" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                             stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                            <path d="M14 3H7a1.8 1.8 0 00-1.8 1.8v14.4A1.8 1.8 0 007 21h10a1.8 1.8 0 001.8-1.8V8z"/>
+                            <path d="M14 3v5h4.8"/>
+                            <path d="M8.5 13.5l1 3 1.5-2 1.5 2 1-3"/>
+                        </svg>
+                        <span><strong>DOCX</strong> · trabajos de Word, incluidos los que llevan tablas</span>
+                    </li>
+                    <li>
+                        <svg class="icon icon--txt" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                             stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                            <path d="M14 3H7a1.8 1.8 0 00-1.8 1.8v14.4A1.8 1.8 0 007 21h10a1.8 1.8 0 001.8-1.8V8z"/>
+                            <path d="M14 3v5h4.8"/>
+                            <path d="M8.5 14h7M8.5 17h4"/>
+                        </svg>
+                        <span><strong>TXT</strong> · texto plano en UTF-8 o Windows-1252</span>
+                    </li>
+                </ul>
+                <p class="muted small">
+                    Máximo 10 MB por archivo. El texto debe tener al menos 100 caracteres.
+                </p>
+
+                <h3 class="card__title card__title--spaced">Cómo funciona</h3>
+                <ol class="steps">
+                    <li>El documento se divide en párrafos.</li>
+                    <li>Cada párrafo se analiza por separado con un modelo de lenguaje.</li>
+                    <li>Obtienes un score por párrafo, un resumen y un informe en PDF.</li>
+                </ol>
+            </section>
+        </aside>
+    </div>
+
+    <!-- ============================ Resultados (HTMX) ============================ -->
+    <div id="analysis-slot" class="analysis-slot" aria-live="polite"></div>
+
+</main>
+
+<!-- ============================ Pie ============================ -->
+<footer class="site-footer">
+    <div class="container site-footer__inner">
+        <p class="site-footer__notice">
+            <strong>TextOrigin es una herramienta orientativa.</strong>
+            Sus resultados no constituyen prueba de uso de IA y pueden incluir falsos positivos,
+            especialmente en escritores no nativos o estilos muy formales.
+        </p>
+        <p class="muted small">
+            Contacto: <a th:href="@{'mailto:' + ${contactEmail}}" th:text="${contactEmail}">contacto@textorigin.com</a>
+        </p>
+        <p class="site-footer__credits">
+            Elaborado por: <strong>Ing. Jairo Graterón</strong>
+        </p>
+    </div>
+</footer>
+
+</body>
+</html>
