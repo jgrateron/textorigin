@@ -43,6 +43,11 @@ services:
       # textorigin.quota.max-per-ip-per-day  ->  TEXTOORIGIN_QUOTA_MAX_PER_IP_PER_DAY
       TEXTOORIGIN_QUOTA_MAX_PER_IP_PER_DAY: ${MAX_PER_IP_PER_DAY:-10}
       TEXTOORIGIN_ANALYSIS_CONCURRENT_SEGMENTS: ${CONCURRENT_SEGMENTS:-5}
+
+      # Verificación anti-bots (Cloudflare Turnstile). Opcionales: sin ellas la aplicación
+      # arranca sin CAPTCHA (avisa por log) y el límite diario por IP sigue aplicándose.
+      TURNSTILE_SITE_KEY: ${TURNSTILE_SITE_KEY:-}
+      TURNSTILE_SECRET_KEY: ${TURNSTILE_SECRET_KEY:-}
       SPRING_AI_OPENAI_CHAT_OPTIONS_MODEL: ${DEEPSEEK_MODEL:-deepseek-flash}
       TEXTOORIGIN_MODEL_PREFER_SPRING_AI: ${PREFER_SPRING_AI:-false}
 

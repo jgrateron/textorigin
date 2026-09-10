@@ -42,6 +42,7 @@ Flujo de un análisis, de principio a fin:
 
 ```
 POST /analysis/analyze  (AnalysisController)
+  └─ CaptchaService.verify()              ← anti-bots (Cloudflare Turnstile), antes que todo
   └─ QuotaService.checkQuota()            ← antes de gastar tokens
   └─ TextExtractionService                PDF (PDFBox) / DOCX (POI) / TXT → texto normalizado
                                           · HiddenTextPdfStripper descarta el texto oculto del PDF
@@ -91,6 +92,23 @@ endpoint devuelve `fragments/analysis-results`, que sustituye al indicador de pr
   va antes de llamar a DeepSeek y el consumo se registra **solo** cuando el análisis termina con
   resultados, desde el hilo de fondo y con la IP capturada durante la petición (no se toca la
   `HttpServletRequest` desde ese hilo).
+- **Verificación anti-bots (Cloudflare Turnstile)**: `CaptchaService.verify()` va **antes** de
+  `checkQuota()` para que un envío automatizado no consuma cuota ni llegue a extraer texto. La
+  comprobación real es la del servidor (el widget del navegador es decorativo): se canjea el
+  token del campo `CaptchaService.TOKEN_FIELD` (`cf-turnstile-response`) contra `siteverify`.
+  Invariantes: (1) la aplicación **arranca sin claves** (misma convención que
+  `DEEPSEEK_API_KEY`): avisa por log y el formulario queda solo con la cuota — el widget y el
+  script de Cloudflare no se pintan si `isEnabled()` es falso; (2) la degradación ante fallo de
+  red, tiempo de espera o error de Cloudflare es **fail-open** con aviso (rechazar por una
+  caída ajena dejaría la aplicación inutilizable; la cuota sigue conteniendo el abuso), pero un
+  token ausente o rechazado sí corta el envío; (3) el token es de un solo uso: `static/js/captcha.js`
+  llama a `turnstile.reset()` en `htmx:afterRequest` **solo** para las peticiones de
+  `#analysis-form`, porque el sondeo de estado dispara ese mismo evento cada 1,5 s; (4) el
+  script de Cloudflare es la única dependencia externa de la interfaz y solo se carga cuando
+  hay claves — no hay que "arreglarlo" para que use el WebJar; (5) cualquier cambio en el
+  nombre del campo, el widget o el JS debe ir acompañado de sus casos en `CaptchaServiceTest`
+  (con `MockRestServiceServer`) y `CaptchaFormRenderTest` (usa las claves de prueba de
+  Cloudflare, que siempre dejan pasar, y ningún caso llega a consultar `siteverify`).
 - **Publicación de resultados entre hilos**: los segmentos viven en una `CopyOnWriteArrayList` y
   cada resultado se publica con `set(index, ...)`; `DocumentAnalysis.status` es `volatile` y se
   escribe **el último**, de modo que leer `COMPLETED` garantiza ver todos los resultados.

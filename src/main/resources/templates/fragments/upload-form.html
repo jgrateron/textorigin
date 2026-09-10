@@ -94,6 +94,20 @@
               placeholder="Pega aquí el ensayo, artículo o trabajo que quieres analizar…"></textarea>
     <p class="field-hint">Si seleccionas un archivo, se analizará el archivo e ignorará el texto pegado.</p>
 
+    <!--
+        Verificación anti-bots (Cloudflare Turnstile). Solo se pinta si hay claves configuradas
+        (textorigin.captcha.*); Turnstile inyecta aquí el campo oculto cf-turnstile-response,
+        que viaja en el FormData del POST. El servidor lo verifica en CaptchaService y
+        /js/captcha.js se encarga del aviso previo y de renovar el token de un solo uso.
+    -->
+    <div class="captcha-field" th:if="${captchaEnabled}">
+        <div class="cf-turnstile" th:attr="data-sitekey=${captchaSiteKey}"
+             data-language="es" data-theme="light" data-size="flexible"></div>
+    </div>
+    <p class="field-error" id="captcha-error" th:if="${captchaEnabled}" hidden role="alert">
+        Marca la casilla de verificación para confirmar que no eres un robot.
+    </p>
+
     <div class="form-actions">
         <div id="global-indicator" class="htmx-indicator inline-loading">
             <span class="spinner spinner--sm" aria-hidden="true"></span>

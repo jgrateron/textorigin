@@ -1,6 +1,7 @@
 package com.textorigin.controller;
 
 import com.textorigin.exception.AnalysisException;
+import com.textorigin.exception.CaptchaException;
 import com.textorigin.exception.QuotaExceededException;
 import com.textorigin.exception.TextExtractionException;
 import com.textorigin.service.QuotaService;
@@ -66,6 +67,22 @@ public class GlobalExceptionHandler {
                 "Límite alcanzado",
                 ex.getUserMessage(),
                 "Para solicitar más análisis, escribe a " + quotaService.getContactEmail() + ".");
+    }
+
+    /**
+     * Verificación anti-bots no superada (token ausente, caducado o rechazado).
+     *
+     * @param ex      excepción de verificación
+     * @param request petición en curso
+     * @return la vista o el fragmento de error
+     */
+    @ExceptionHandler(CaptchaException.class)
+    public ModelAndView handleCaptcha(CaptchaException ex, HttpServletRequest request) {
+        log.warn("Verificación anti-bots rechazada: {}", ex.getMessage());
+        return errorView(request, HttpStatus.BAD_REQUEST,
+                ex.getTitle(),
+                ex.getUserMessage(),
+                "Si el problema persiste, escribe a " + quotaService.getContactEmail() + ".");
     }
 
     /**

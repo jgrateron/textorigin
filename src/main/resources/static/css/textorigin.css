@@ -541,6 +541,11 @@ main.container {
     font-weight: 500;
 }
 
+/* Widget de verificación anti-bots (Cloudflare Turnstile) */
+.captcha-field {
+    margin: var(--space-2) 0 var(--space-4);
+}
+
 .form-actions {
     display: flex;
     align-items: center;

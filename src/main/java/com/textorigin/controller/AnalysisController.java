@@ -11,6 +11,7 @@ import com.textorigin.model.SanitizedText;
 import com.textorigin.model.Segment;
 import com.textorigin.service.AnalysisStorageService;
 import com.textorigin.service.BibliographyDetector;
+import com.textorigin.service.CaptchaService;
 import com.textorigin.service.DeepSeekAnalysisService;
 import com.textorigin.service.InjectionDefenseService;
 import com.textorigin.service.QuotaService;
@@ -51,26 +52,36 @@ public class AnalysisController {
     private final AnalysisStorageService storageService;
     private final DeepSeekAnalysisService analysisService;
     private final QuotaService quotaService;
+    private final CaptchaService captchaService;
 
     /**
      * Recibe el documento y lanza su análisis.
      *
-     * <p>La comprobación de cuota se hace aquí, antes de extraer el texto y de llamar a
-     * DeepSeek, para no gastar tokens en vano. El consumo solo se registra cuando el análisis
-     * termina con resultados: si algo falla, el usuario no pierde un análisis.</p>
+     * <p>La verificación anti-bots y la comprobación de cuota se hacen aquí, antes de extraer
+     * el texto y de llamar a DeepSeek, para no gastar tokens en vano: primero el CAPTCHA, para
+     * que un envío automatizado no consuma ni cuota; después la cuota. El consumo solo se
+     * registra cuando el análisis termina con resultados: si algo falla, el usuario no pierde
+     * un análisis.</p>
      *
-     * @param file    archivo subido (opcional)
-     * @param text    texto pegado (opcional)
-     * @param request petición en curso
-     * @param model   modelo de la vista
+     * @param file         archivo subido (opcional)
+     * @param text         texto pegado (opcional)
+     * @param captchaToken token de Cloudflare Turnstile que inyecta el widget del formulario
+     * @param request      petición en curso
+     * @param model        modelo de la vista
      * @return el fragmento con el indicador de progreso
      */
     @PostMapping("/analyze")
     public String analyze(@RequestParam(value = "file", required = false) MultipartFile file,
                           @RequestParam(value = "text", required = false) String text,
+                          @RequestParam(value = CaptchaService.TOKEN_FIELD, required = false) String captchaToken,
                           HttpServletRequest request,
                           Model model) {
 
+        // La IP se captura al principio: la necesitan la verificación anti-bots y el registro
+        // del consumo (que ocurre desde el hilo de fondo, ya sin acceso a la petición HTTP).
+        String clientIp = quotaService.getClientIp(request);
+
+        captchaService.verify(captchaToken, clientIp);
         quotaService.checkQuota(request);
 
         AnalysisRequest analysisRequest = AnalysisRequest.builder()
@@ -111,10 +122,6 @@ public class AnalysisController {
                 storageService.createAnalysis(document, segments, warnings));
         log.info("Análisis solicitado: id={} origen={} -> {} segmentos, {} avisos de defensa",
                 analysis.getId(), analysisRequest.describe(), segments.size(), warnings.size());
-
-        // La IP se captura ahora: el consumo se registra desde el hilo de fondo, que ya no
-        // tiene acceso a la petición HTTP.
-        String clientIp = quotaService.getClientIp(request);
 
         analysisService.analyzeAsync(analysis, () -> quotaService.registerConsumption(clientIp));
 

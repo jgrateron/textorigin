@@ -14,6 +14,14 @@
     <script th:src="@{/webjars/htmx.org/1.9.12/dist/htmx.min.js}" defer></script>
     <script th:src="@{/js/dragdrop.js}" defer></script>
     <script th:src="@{/js/analysis-state.js}" defer></script>
+    <script th:src="@{/js/captcha.js}" defer></script>
+    <!--
+        Verificación anti-bots: el script del widget solo se carga si hay claves configuradas.
+        Es la única dependencia externa de la interfaz (HTMX se sirve desde el WebJar); el
+        widget de Cloudflare no puede auto-hospedarse.
+    -->
+    <script th:src="'https://challenges.cloudflare.com/turnstile/v0/api.js'"
+            th:if="${captchaEnabled}" defer></script>
 </head>
 <body>
 

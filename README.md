@@ -26,11 +26,12 @@ orientativo, las **citas textuales de los fragmentos sospechosos** con su motivo
 7. [Estructura del proyecto](#estructura-del-proyecto)
 8. [Cómo funciona el análisis](#cómo-funciona-el-análisis)
 9. [Sistema de cuotas](#sistema-de-cuotas)
-10. [Configuración](#configuración)
-11. [Despliegue detrás de un proxy inverso](#despliegue-detrás-de-un-proxy-inverso)
-12. [Publicar el proyecto](#publicar-el-proyecto)
-13. [Notas de implementación](#notas-de-implementación)
-14. [Limitaciones conocidas y advertencias éticas](#limitaciones-conocidas-y-advertencias-éticas)
+10. [Verificación anti-bots (CAPTCHA)](#verificación-anti-bots-captcha)
+11. [Configuración](#configuración)
+12. [Despliegue detrás de un proxy inverso](#despliegue-detrás-de-un-proxy-inverso)
+13. [Publicar el proyecto](#publicar-el-proyecto)
+14. [Notas de implementación](#notas-de-implementación)
+15. [Limitaciones conocidas y advertencias éticas](#limitaciones-conocidas-y-advertencias-éticas)
 
 ---
 
@@ -53,6 +54,8 @@ orientativo, las **citas textuales de los fragmentos sospechosos** con su motivo
 - **Sin base de datos y sin autenticación**: todo vive en memoria, con purga automática.
 - **Interfaz HTMX**: interactividad sin recargar la página y sin JavaScript complejo.
 - **HTMX servido localmente** desde WebJars: funciona en redes cerradas y sin CDN.
+- **Verificación anti-bots opcional** (Cloudflare Turnstile, sin cookies): protege el
+  formulario de los envíos automatizados antes de gastar cuota o tokens.
 
 ---
 
@@ -478,6 +481,55 @@ Detalles importantes:
 
 ---
 
+## Verificación anti-bots (CAPTCHA)
+
+El único endpoint que gasta tokens y cuota es `POST /analysis/analyze`, así que la portada
+incluye una verificación con **Cloudflare Turnstile**: un CAPTCHA gratuito, **sin cookies ni
+seguimiento** (no exige banner de consentimiento) que el visitante resuelve con una casilla.
+
+**Activarlo** (recomendado en cualquier despliegue público):
+
+1. Entra en <https://dash.cloudflare.com> → *Turnstile* → *Add widget* e indica el dominio
+   donde se sirve TextOrigin.
+2. Copia el **Site Key** y el **Secret Key** del widget y expórtalos como variables de entorno:
+
+   ```bash
+   export TURNSTILE_SITE_KEY="0x4AAAAAAA..."
+   export TURNSTILE_SECRET_KEY="0x4AAAAAAA..."
+   ```
+
+   Con Docker Compose, añádelos al archivo `.env` (ver `.env.example`).
+
+**Sin claves, la aplicación arranca igualmente** (avisa por log): el widget no se pinta y el
+formulario queda protegido solo por el límite diario por IP, como hasta ahora.
+
+Para probar en local sin dar de alta un widget, Cloudflare publica un par de claves de prueba
+que siempre dejan pasar:
+
+```bash
+export TURNSTILE_SITE_KEY=1x00000000000000000000AA
+export TURNSTILE_SECRET_KEY=1x0000000000000000000000000000000AA
+```
+
+Cómo se comporta:
+
+- La verificación se hace **en el servidor** contra el endpoint `siteverify` de Cloudflare
+  (el widget del navegador, por sí solo, no protege nada) y **antes** de comprobar la cuota:
+  un envío automatizado no consume análisis del visitante ni tokens del modelo.
+- El token es de un solo uso; la interfaz pide uno nuevo después de cada envío.
+- Si Cloudflare no responde (red, tiempo de espera o un error suyo), la petición **continúa**
+  con un aviso en el log: es preferible analizar un documento de más que dejar la aplicación
+  inutilizable por una caída ajena, y el límite diario por IP sigue aplicándose. Un token
+  ausente o rechazado sí se corta, con el aviso «Verificación de seguridad».
+- El widget es la **única dependencia externa** de la interfaz (HTMX se sirve desde el
+  WebJar); el script de Cloudflare solo se carga cuando hay claves configuradas.
+
+> Este CAPTCHA también frena el abuso cuando alguien falsifica `X-Forwarded-For` para saltarse
+> el límite por IP (ver el apartado del proxy inverso): el reto se resuelve en el navegador,
+> no con cabeceras.
+
+---
+
 ## Configuración
 
 `src/main/resources/application.yml`:
@@ -487,6 +539,10 @@ textorigin:
   contact-email: jgrateron@gmail.com   # Aparece en la interfaz, los errores y el informe PDF
   quota:
     max-per-ip-per-day: 10      # Análisis por IP y día
+  captcha:
+    enabled: true                        # Interruptor de la verificación anti-bots
+    site-key: ${TURNSTILE_SITE_KEY:}     # Clave pública del widget de Turnstile
+    secret-key: ${TURNSTILE_SECRET_KEY:} # Clave secreta (solo en el servidor)
   analysis:
     min-text-length: 100        # Longitud mínima del texto a analizar
     max-segments: 50            # Máximo de segmentos enviados al modelo

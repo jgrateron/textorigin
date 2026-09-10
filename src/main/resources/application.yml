@@ -54,6 +54,15 @@ textorigin:
     prefer-spring-ai: false
   quota:
     max-per-ip-per-day: 10
+  captcha:
+    # Verificación anti-bots con Cloudflare Turnstile. Sin claves configuradas la aplicación
+    # arranca igualmente (avisa por log) y el formulario queda solo con el límite diario.
+    # Guía: https://developers.cloudflare.com/turnstile/
+    enabled: true
+    site-key: ${TURNSTILE_SITE_KEY:}
+    secret-key: ${TURNSTILE_SECRET_KEY:}
+    # Endpoint de verificación; solo se cambia en pruebas o tras un proxy propio.
+    verify-url: https://challenges.cloudflare.com/turnstile/v0/siteverify
   analysis:
     min-text-length: 100
     max-segments: 50

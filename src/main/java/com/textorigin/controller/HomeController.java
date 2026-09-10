@@ -1,5 +1,6 @@
 package com.textorigin.controller;
 
+import com.textorigin.service.CaptchaService;
 import com.textorigin.service.QuotaService;
 import com.textorigin.service.TextExtractionService;
 import jakarta.servlet.http.HttpServletRequest;
@@ -24,6 +25,7 @@ import java.util.Map;
 public class HomeController {
 
     private final QuotaService quotaService;
+    private final CaptchaService captchaService;
 
     /**
      * Página de inicio.
@@ -35,6 +37,10 @@ public class HomeController {
     @GetMapping("/")
     public String index(HttpServletRequest request, Model model) {
         addQuotaAttributes(request, model);
+        // El fragmento del formulario lee estas variables para pintar el widget de Turnstile
+        // solo cuando la verificación está configurada.
+        model.addAttribute("captchaEnabled", captchaService.isEnabled());
+        model.addAttribute("captchaSiteKey", captchaService.getSiteKey());
         model.addAttribute("supportedExtensions", TextExtractionService.supportedExtensions());
         model.addAttribute("maxFileSizeMb", TextExtractionService.MAX_FILE_SIZE_BYTES / (1024 * 1024));
         model.addAttribute("minTextLength", 100);
