@@ -190,6 +190,7 @@ Variables de entorno admitidas por el contenedor (todas opcionales salvo la prim
 | `TEXTOORIGIN_QUOTA_MAX_PER_SESSION` | `textorigin.quota.max-per-session` | `3` |
 | `TEXTOORIGIN_QUOTA_MAX_PER_IP_PER_DAY` | `textorigin.quota.max-per-ip-per-day` | `10` |
 | `TEXTOORIGIN_ANALYSIS_CONCURRENT_SEGMENTS` | `textorigin.analysis.concurrent-segments` | `5` |
+| `TEXTOORIGIN_CONTACT_EMAIL` | `textorigin.contact-email` | `jgrateron@gmail.com` |
 | `SPRING_AI_OPENAI_CHAT_OPTIONS_MODEL` | `spring.ai.openai.chat.options.model` | `deepseek-chat` |
 
 ---
@@ -387,7 +388,7 @@ Detalles importantes:
 - **La comprobación se hace antes de llamar a DeepSeek** y el consumo **solo se registra
   cuando el análisis termina con resultados**. Si la API falla, el usuario no pierde cuota.
 - **Al agotar la cuota** la interfaz muestra un bloque centrado con el motivo concreto (sesión
-  o IP) y el correo de contacto **contacto@textorigin.com** para solicitar más análisis.
+  o IP) y el correo de contacto configurado en `textorigin.contact-email` para solicitar más análisis.
 - **En la página principal** hay una barra de progreso con los análisis disponibles en la
   sesión, que se pone roja al llegar a cero y se actualiza sola al terminar cada análisis.
 - La limpieza de las cuotas por IP se ejecuta con `@Scheduled(cron = "0 0 3 * * *")` y elimina
@@ -408,6 +409,7 @@ Detalles importantes:
 
 ```yaml
 textorigin:
+  contact-email: jgrateron@gmail.com   # Aparece en la interfaz, los errores y el informe PDF
   quota:
     max-per-session: 3          # Análisis por sesión HTTP
     max-per-ip-per-day: 10      # Análisis por IP y día
@@ -482,6 +484,11 @@ Decisiones que conviene conocer antes de modificar el proyecto:
   invalida el resto del informe.
 - **PDF**: se usan las fuentes estándar Helvetica (WinAnsi). Los caracteres no representables
   (emojis, alfabetos no latinos) se sustituyen por `?` para que el informe siempre se genere.
+  Al generar el informe verás en el log tres avisos del tipo
+  `Using fallback font LiberationSans for base font Helvetica`: son informativos. PDFBox los
+  emite porque las fuentes estándar 14 no se embeben en el documento (el visor aporta las
+  suyas) y solo afectan al cálculo interno de métricas; el PDF declara correctamente
+  `Helvetica`, `Helvetica-Bold` y `Helvetica-Oblique`, y el texto se extrae sin pérdidas.
 - **Retención en memoria**: los análisis se eliminan automáticamente a las 6 horas. Si la
   aplicación se reinicia, los análisis en curso se pierden (no hay persistencia).
 
@@ -512,4 +519,4 @@ Decisiones que conviene conocer antes de modificar el proyecto:
 
 ## Contacto
 
-Para solicitar más análisis o reportar problemas: **contacto@textorigin.com**
+Para solicitar más análisis o reportar problemas: **jgrateron@gmail.com**

@@ -44,8 +44,8 @@ import java.util.concurrent.atomic.AtomicInteger;
 @Service
 public class QuotaService {
 
-    /** Correo de contacto mostrado al agotar la cuota. */
-    public static final String CONTACT_EMAIL = "contacto@textorigin.com";
+    /** Correo de contacto usado si no se configura {@code textorigin.contact-email}. */
+    private static final String DEFAULT_CONTACT_EMAIL = "jgrateron@gmail.com";
 
     /** Atributo de sesión donde se guarda el contador. */
     private static final String SESSION_COUNTER_ATTRIBUTE = "textorigin.quota.session.counter";
@@ -62,16 +62,28 @@ public class QuotaService {
 
     private final int maxPerSession;
     private final int maxPerIpPerDay;
+    private final String contactEmail;
 
     /** Contadores por IP, con la fecha del día al que corresponden. */
     private final ConcurrentHashMap<String, IpQuota> ipQuotas = new ConcurrentHashMap<>();
 
     public QuotaService(@Value("${textorigin.quota.max-per-session:3}") int maxPerSession,
-                        @Value("${textorigin.quota.max-per-ip-per-day:10}") int maxPerIpPerDay) {
+                        @Value("${textorigin.quota.max-per-ip-per-day:10}") int maxPerIpPerDay,
+                        @Value("${textorigin.contact-email:" + DEFAULT_CONTACT_EMAIL + "}") String contactEmail) {
         this.maxPerSession = maxPerSession;
         this.maxPerIpPerDay = maxPerIpPerDay;
-        log.info("Sistema de cuotas activo: {} análisis por sesión, {} por IP y día",
-                maxPerSession, maxPerIpPerDay);
+        this.contactEmail = contactEmail;
+        log.info("Sistema de cuotas activo: {} análisis por sesión, {} por IP y día (contacto: {})",
+                maxPerSession, maxPerIpPerDay, contactEmail);
+    }
+
+    /**
+     * Correo de contacto mostrado al agotar la cuota, en los errores y en el informe PDF.
+     *
+     * @return el correo configurado en {@code textorigin.contact-email}
+     */
+    public String getContactEmail() {
+        return contactEmail;
     }
 
     /** Contador de una IP para un día concreto. */

@@ -13,6 +13,7 @@ import org.apache.pdfbox.pdmodel.font.PDType1Font;
 import org.apache.pdfbox.pdmodel.font.Standard14Fonts;
 import org.apache.pdfbox.pdmodel.graphics.color.PDColor;
 import org.apache.pdfbox.pdmodel.graphics.color.PDDeviceRGB;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 
 import java.io.ByteArrayOutputStream;
@@ -46,6 +47,10 @@ public class PdfReportService {
     private static final DateTimeFormatter DATE_FORMAT =
             DateTimeFormatter.ofPattern("dd/MM/yyyy 'a las' HH:mm", new Locale("es", "ES"));
 
+    /** Correo de contacto impreso en el informe, configurable con {@code textorigin.contact-email}. */
+    @Value("${textorigin.contact-email:jgrateron@gmail.com}")
+    private String contactEmail;
+
     /**
      * Genera el informe en memoria.
      *
@@ -59,7 +64,7 @@ public class PdfReportService {
         }
 
         try (PDDocument document = new PDDocument()) {
-            PdfWriter writer = new PdfWriter(document);
+            PdfWriter writer = new PdfWriter(document, contactEmail);
             writer.writeCover(analysis);
             writer.writeExecutiveSummary(analysis);
             writer.writeAnnotatedText(analysis);
@@ -129,6 +134,7 @@ public class PdfReportService {
         private static final float[] TINT_PENDING = {0.953f, 0.957f, 0.965f};
 
         private final PDDocument document;
+        private final String contactEmail;
         private final PDFont regular = new PDType1Font(Standard14Fonts.FontName.HELVETICA);
         private final PDFont bold = new PDType1Font(Standard14Fonts.FontName.HELVETICA_BOLD);
         private final PDFont oblique = new PDType1Font(Standard14Fonts.FontName.HELVETICA_OBLIQUE);
@@ -137,8 +143,9 @@ public class PdfReportService {
         private PDPageContentStream stream;
         private float cursorY;
 
-        PdfWriter(PDDocument document) throws IOException {
+        PdfWriter(PDDocument document, String contactEmail) throws IOException {
             this.document = document;
+            this.contactEmail = contactEmail;
             newPage();
         }
 
@@ -499,7 +506,7 @@ public class PdfReportService {
 
             cursorY -= 8;
             writeParagraph("Para cualquier duda sobre la interpretación de este informe, escribe a "
-                    + "contacto@textorigin.com.", oblique, 9f, NEUTRAL_500);
+                    + contactEmail + ".", oblique, 9f, NEUTRAL_500);
         }
 
         private void writeBullet(String text) throws IOException {
@@ -537,7 +544,7 @@ public class PdfReportService {
 
                     footerText(footer, "TextOrigin · Informe orientativo: no constituye prueba de uso de IA.",
                             MARGIN, FOOTER_BASELINE);
-                    footerText(footer, "contacto@textorigin.com", MARGIN, FOOTER_BASELINE - 10);
+                    footerText(footer, contactEmail, MARGIN, FOOTER_BASELINE - 10);
 
                     String pageLabel = "Página " + (i + 1) + " de " + totalPages;
                     float labelWidth = footerWidth(pageLabel);

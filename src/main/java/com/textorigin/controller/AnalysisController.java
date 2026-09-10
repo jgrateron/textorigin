@@ -121,7 +121,7 @@ public class AnalysisController {
         DocumentAnalysis analysis = storageService.getRequired(id);
         model.addAttribute("analysis", analysis);
         model.addAttribute("quota", quotaService.getStatus(request));
-        model.addAttribute("contactEmail", QuotaService.CONTACT_EMAIL);
+        model.addAttribute("contactEmail", quotaService.getContactEmail());
         return "analysis";
     }
 
@@ -138,7 +138,7 @@ public class AnalysisController {
         DocumentAnalysis analysis = storageService.getRequired(id);
         model.addAttribute("analysis", analysis);
         model.addAttribute("quota", quotaService.getStatus(request));
-        model.addAttribute("contactEmail", QuotaService.CONTACT_EMAIL);
+        model.addAttribute("contactEmail", quotaService.getContactEmail());
         return analysis.isRunning()
                 ? "fragments/analysis-progress :: progress"
                 : "fragments/analysis-results :: results";

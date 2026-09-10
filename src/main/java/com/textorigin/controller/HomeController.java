@@ -76,6 +76,6 @@ public class HomeController {
 
     private void addQuotaAttributes(HttpServletRequest request, Model model) {
         model.addAttribute("quota", quotaService.getStatus(request));
-        model.addAttribute("contactEmail", QuotaService.CONTACT_EMAIL);
+        model.addAttribute("contactEmail", quotaService.getContactEmail());
     }
 }

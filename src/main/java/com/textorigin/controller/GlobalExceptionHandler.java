@@ -37,6 +37,12 @@ public class GlobalExceptionHandler {
     private static final String ERROR_FRAGMENT = "error :: content";
     private static final String QUOTA_FRAGMENT = "fragments/quota-exceeded :: content";
 
+    private final QuotaService quotaService;
+
+    public GlobalExceptionHandler(QuotaService quotaService) {
+        this.quotaService = quotaService;
+    }
+
     /**
      * Cuota agotada: se muestra el bloque de límite alcanzado con el correo de contacto.
      *
@@ -52,14 +58,14 @@ public class GlobalExceptionHandler {
             ModelAndView fragment = new ModelAndView(QUOTA_FRAGMENT);
             fragment.setStatus(HttpStatus.OK);
             fragment.addObject("quotaException", ex);
-            fragment.addObject("contactEmail", QuotaService.CONTACT_EMAIL);
+            fragment.addObject("contactEmail", quotaService.getContactEmail());
             return fragment;
         }
 
         return errorView(request, HttpStatus.TOO_MANY_REQUESTS,
                 "Límite alcanzado",
                 ex.getUserMessage(),
-                "Para solicitar más análisis, escribe a " + QuotaService.CONTACT_EMAIL + ".");
+                "Para solicitar más análisis, escribe a " + quotaService.getContactEmail() + ".");
     }
 
     /**
@@ -140,7 +146,7 @@ public class GlobalExceptionHandler {
                 "No se pudo completar el análisis",
                 ex.getMessage(),
                 "Si el problema persiste, comprueba la configuración de DEEPSEEK_API_KEY o "
-                        + "escribe a contacto@textorigin.com.");
+                        + "escribe a " + quotaService.getContactEmail() + ".");
     }
 
     /**
@@ -174,7 +180,7 @@ public class GlobalExceptionHandler {
                 "Algo ha ido mal",
                 "Se ha producido un error inesperado al procesar tu solicitud.",
                 "Vuelve a intentarlo en unos instantes. Si el problema continúa, escribe a "
-                        + "contacto@textorigin.com.");
+                        + quotaService.getContactEmail() + ".");
     }
 
     private boolean isHtmxRequest(HttpServletRequest request) {
@@ -192,7 +198,7 @@ public class GlobalExceptionHandler {
         modelAndView.addObject("title", title);
         modelAndView.addObject("message", message);
         modelAndView.addObject("detail", detail);
-        modelAndView.addObject("contactEmail", QuotaService.CONTACT_EMAIL);
+        modelAndView.addObject("contactEmail", quotaService.getContactEmail());
         return modelAndView;
     }
 }

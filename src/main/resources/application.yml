@@ -43,6 +43,8 @@ spring:
           temperature: 0.2
 
 textorigin:
+  # Correo de contacto que aparece en la interfaz, en los mensajes de error y en el informe PDF.
+  contact-email: jgrateron@gmail.com
   quota:
     max-per-session: 3
     max-per-ip-per-day: 10

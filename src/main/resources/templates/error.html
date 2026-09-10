@@ -58,7 +58,7 @@
         <div class="error-card__actions">
             <a class="btn btn--primary" th:href="@{/}">Volver al inicio</a>
             <a class="btn btn--ghost" th:href="@{'mailto:' + ${contactEmail}}"
-               th:text="${contactEmail}">contacto@textorigin.com</a>
+               th:text="${contactEmail}">jgrateron@gmail.com</a>
         </div>
     </section>
 
@@ -71,8 +71,8 @@
             <strong>TextOrigin es una herramienta orientativa.</strong>
             Sus resultados no constituyen prueba de uso de IA.
         </p>
-        <p class="muted small">
-            Contacto: <a href="mailto:contacto@textorigin.com">contacto@textorigin.com</a>
+        <p class="muted small" th:if="${contactEmail != null}">
+            Contacto: <a th:href="@{'mailto:' + ${contactEmail}}" th:text="${contactEmail}">jgrateron@gmail.com</a>
         </p>
     </div>
 </footer>
