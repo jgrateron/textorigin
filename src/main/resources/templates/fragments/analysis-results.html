@@ -63,11 +63,13 @@
         <section class="card text-panel">
             <header class="text-panel__head">
                 <h3 class="card__title">Texto analizado</h3>
-                <p class="muted small">Pulsa sobre un párrafo para ver su análisis detallado.</p>
+                <p class="muted small">
+                    Pulsa sobre un párrafo —o sobre una cita del panel lateral— para ver su análisis detallado.
+                </p>
                 <ul class="legend">
-                    <li><span class="legend__swatch legend__swatch--human"></span>Probablemente humano (&lt;40)</li>
-                    <li><span class="legend__swatch legend__swatch--doubtful"></span>Dudoso (40-70)</li>
-                    <li><span class="legend__swatch legend__swatch--ai"></span>Alta sospecha de IA (&gt;70)</li>
+                    <li><span class="legend__swatch legend__swatch--human"></span>Probablemente humano (&lt;40 %)</li>
+                    <li><span class="legend__swatch legend__swatch--doubtful"></span>Dudoso (40-70 %)</li>
+                    <li><span class="legend__swatch legend__swatch--ai"></span>Alta sospecha de IA (&gt;70 %)</li>
                 </ul>
             </header>
 
@@ -87,6 +89,60 @@
         <!-- Panel derecho: resumen y lista de segmentos -->
         <aside class="results__side">
             <div th:replace="~{fragments/score-summary :: summary}"></div>
+
+            <!-- Citas agregadas del documento: pulsar una abre el detalle de su segmento -->
+            <section class="card fragment-panel" th:if="${analysis.completed}">
+                <h3 class="card__title">Fragmentos sospechosos citados</h3>
+
+                <th:block th:if="${analysis.hasSuspiciousFragments()}">
+                    <p class="muted small">
+                        <span th:text="${analysis.suspiciousFragmentCount}">0</span> citas en total.
+                        Pulsa una cita para abrir el detalle de su segmento.
+                    </p>
+                    <ul class="fragment-list fragment-list--scroll">
+                        <li class="fragment fragment--clickable" tabindex="0"
+                            th:each="fragment : ${analysis.allSuspiciousFragments}"
+                            th:attr="hx-get=@{/analysis/{id}/segment/{index}(id=${analysis.id}, index=${fragment.segmentIndex})}"
+                            hx-trigger="click, keyup[key=='Enter']"
+                            hx-target="#segment-detail"
+                            hx-swap="innerHTML"
+                            hx-indicator="#segment-detail">
+                            <blockquote class="fragment__quote" th:text="${fragment.text}">Cita textual.</blockquote>
+                            <p class="fragment__reason" th:text="${fragment.reason}">Motivo.</p>
+                            <p class="fragment__meta">
+                                <span class="badge badge--sm" th:classappend="${fragment.levelCssClass}"
+                                      th:text="${fragment.levelLabel}">Sospecha media</span>
+                                <span class="fragment__segment" th:text="${fragment.segmentLabel}">Segmento 3</span>
+                            </p>
+                        </li>
+                    </ul>
+                </th:block>
+
+                <p class="muted small" th:unless="${analysis.hasSuspiciousFragments()}">
+                    El modelo no ha citado fragmentos sospechosos concretos en este análisis.
+                </p>
+            </section>
+
+            <!-- Evidencias de posible mano humana señaladas por el modelo -->
+            <section class="card fragment-panel" th:if="${analysis.completed}">
+                <h3 class="card__title">Evidencias de mano humana</h3>
+
+                <th:block th:if="${analysis.hasHumanEvidence()}">
+                    <ul class="evidence-list">
+                        <li th:each="segment : ${analysis.segments}" th:if="${segment.hasHumanEvidence()}">
+                            <span class="evidence-list__segment" th:text="${segment.label}">Segmento 3</span>
+                            <ul class="tag-list tag-list--human">
+                                <li th:each="evidence : ${segment.humanEvidence}" th:text="${evidence}">Ironía.</li>
+                            </ul>
+                        </li>
+                    </ul>
+                </th:block>
+
+                <p class="muted small" th:unless="${analysis.hasHumanEvidence()}">
+                    No se han detectado evidencias claras de autoría humana. La ausencia de estas
+                    señales no demuestra que el texto sea de IA.
+                </p>
+            </section>
 
             <section class="card segment-list">
                 <h3 class="card__title">Detalle por segmento</h3>

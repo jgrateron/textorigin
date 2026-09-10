@@ -7,6 +7,7 @@ import lombok.NoArgsConstructor;
 
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.CopyOnWriteArrayList;
 
@@ -142,6 +143,56 @@ public class DocumentAnalysis {
     public Integer getGlobalScoreRounded() {
         Double value = getGlobalScore();
         return value == null ? null : (int) Math.round(value);
+    }
+
+    /** Porcentaje estimado listo para mostrar ("62 %"), o "—" si todavía no hay resultados. */
+    public String getGlobalScoreLabel() {
+        Integer value = getGlobalScoreRounded();
+        return value == null ? "—" : value + " %";
+    }
+
+    /**
+     * Todas las citas sospechosas del documento, en orden de segmento y, dentro de cada uno,
+     * en el orden en que las devolvió el modelo. Cada cita conserva su {@code segmentIndex},
+     * que es lo que permite enlazarla con su segmento desde el panel agregado.
+     */
+    public List<SuspiciousFragment> getAllSuspiciousFragments() {
+        if (segments == null) {
+            return List.of();
+        }
+        List<SuspiciousFragment> all = new ArrayList<>();
+        for (SegmentAnalysis segment : segments) {
+            if (segment.hasSuspiciousFragments()) {
+                all.addAll(segment.getSuspiciousFragments());
+            }
+        }
+        return all;
+    }
+
+    /** Indica si algún segmento tiene citas sospechosas. */
+    public boolean hasSuspiciousFragments() {
+        return getSuspiciousFragmentCount() > 0;
+    }
+
+    /** Número total de citas sospechosas del documento. */
+    public int getSuspiciousFragmentCount() {
+        if (segments == null) {
+            return 0;
+        }
+        return segments.stream().mapToInt(SegmentAnalysis::getSuspiciousFragmentCount).sum();
+    }
+
+    /** Indica si algún segmento tiene evidencias de mano humana. */
+    public boolean hasHumanEvidence() {
+        return getHumanEvidenceCount() > 0;
+    }
+
+    /** Número total de evidencias de mano humana del documento. */
+    public int getHumanEvidenceCount() {
+        if (segments == null) {
+            return 0;
+        }
+        return segments.stream().mapToInt(SegmentAnalysis::getHumanEvidenceCount).sum();
     }
 
     private static int countWords(String text) {

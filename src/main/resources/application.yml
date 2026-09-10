@@ -46,7 +46,6 @@ textorigin:
   # Correo de contacto que aparece en la interfaz, en los mensajes de error y en el informe PDF.
   contact-email: jgrateron@gmail.com
   quota:
-    max-per-session: 3
     max-per-ip-per-day: 10
   analysis:
     min-text-length: 100

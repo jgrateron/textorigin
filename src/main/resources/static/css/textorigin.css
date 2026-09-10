@@ -729,12 +729,6 @@ main.container {
     overflow: hidden;
 }
 
-.quota-bar--slim {
-    display: block;
-    height: 5px;
-    margin-top: 5px;
-}
-
 .quota-bar-fill {
     height: 100%;
     width: 0;
@@ -755,24 +749,6 @@ main.container {
     margin: var(--space-3) 0 0;
     font-size: 0.83rem;
     color: var(--color-neutral-500);
-}
-
-.quota-card__ip {
-    margin: var(--space-4) 0 0;
-    padding-top: var(--space-3);
-    border-top: 1px solid var(--color-neutral-200);
-}
-
-.quota-card__ip dt {
-    font-size: 0.78rem;
-    color: var(--color-neutral-500);
-}
-
-.quota-card__ip dd {
-    margin: var(--space-1) 0 0;
-    font-size: 0.85rem;
-    font-weight: 600;
-    color: var(--color-neutral-700);
 }
 
 .quota-card__contact {
@@ -1270,8 +1246,103 @@ main.container {
     font-size: 0.76rem;
 }
 
+/* Evidencias de posible mano humana: misma forma que las etiquetas, en verde */
+.tag-list--human li {
+    background-color: var(--tint-human);
+    color: #047857;
+}
+
 .segment-detail-panel {
     border-style: dashed;
+}
+
+/* --- Fragmentos sospechosos citados --- */
+.fragment-panel .card__title {
+    margin-bottom: var(--space-1);
+}
+
+.fragment-list {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-3);
+    list-style: none;
+    margin: var(--space-3) 0 0;
+    padding: 0;
+}
+
+.fragment-list--scroll {
+    max-height: 420px;
+    overflow-y: auto;
+}
+
+.fragment {
+    padding: var(--space-3);
+    border-radius: var(--radius-md);
+    border: 1px solid var(--color-neutral-200);
+    background-color: var(--color-neutral-50);
+}
+
+.fragment--clickable {
+    cursor: pointer;
+    transition: box-shadow var(--transition), border-color var(--transition);
+}
+
+.fragment--clickable:hover {
+    box-shadow: var(--shadow-md);
+    border-color: var(--color-neutral-300);
+}
+
+.fragment__quote {
+    margin: 0 0 var(--space-2);
+    padding-left: var(--space-3);
+    border-left: 3px solid var(--color-neutral-300);
+    font-family: var(--font-serif);
+    font-style: italic;
+    font-size: 0.92rem;
+    line-height: 1.6;
+    color: var(--color-neutral-900);
+}
+
+.fragment__reason {
+    margin: 0 0 var(--space-2);
+    font-size: 0.85rem;
+    color: var(--color-neutral-700);
+}
+
+.fragment__meta {
+    display: flex;
+    align-items: center;
+    gap: var(--space-2);
+    margin: 0;
+}
+
+.fragment__segment {
+    font-size: 0.75rem;
+    font-weight: 600;
+    color: var(--color-neutral-500);
+}
+
+/* Niveles de sospecha: mismos colores que las insignias de clasificación */
+.fragment-level--alto { background-color: #b91c1c; color: var(--color-white); }
+.fragment-level--medio { background-color: #b45309; color: var(--color-white); }
+.fragment-level--bajo { background-color: #047857; color: var(--color-white); }
+
+/* --- Evidencias de mano humana (panel agregado) --- */
+.evidence-list {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-3);
+    list-style: none;
+    margin: var(--space-3) 0 0;
+    padding: 0;
+}
+
+.evidence-list__segment {
+    display: block;
+    margin-bottom: var(--space-1);
+    font-size: 0.78rem;
+    font-weight: 600;
+    color: var(--color-neutral-500);
 }
 
 /* ==========================================================================
@@ -1496,6 +1567,10 @@ main.container {
     }
 
     .segment-list {
+        max-height: none;
+    }
+
+    .fragment-list--scroll {
         max-height: none;
     }
 

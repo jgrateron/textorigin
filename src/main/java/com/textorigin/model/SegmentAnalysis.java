@@ -60,6 +60,14 @@ public class SegmentAnalysis {
     @Builder.Default
     private List<String> indicators = new ArrayList<>();
 
+    /** Citas textuales que el modelo ha señalado como sospechosas en este segmento. */
+    @Builder.Default
+    private List<SuspiciousFragment> suspiciousFragments = new ArrayList<>();
+
+    /** Señales de posible autoría humana detectadas por el modelo en este segmento. */
+    @Builder.Default
+    private List<String> humanEvidence = new ArrayList<>();
+
     /** Explicación en lenguaje sencillo para el profesorado. */
     private String explanation;
 
@@ -135,10 +143,10 @@ public class SegmentAnalysis {
         return "Segmento " + (index + 1);
     }
 
-    /** Texto corto con el score para las insignias de la interfaz. */
+    /** Porcentaje estimado listo para las insignias de la interfaz: "62 %". */
     public String getScoreLabel() {
         if (isCompleted()) {
-            return score + "/100";
+            return score + " %";
         }
         return hasError() ? "—" : "…";
     }
@@ -166,6 +174,26 @@ public class SegmentAnalysis {
     /** Indica si hay indicadores que listar. */
     public boolean hasIndicators() {
         return indicators != null && !indicators.isEmpty();
+    }
+
+    /** Indica si hay fragmentos sospechosos citados que mostrar. */
+    public boolean hasSuspiciousFragments() {
+        return suspiciousFragments != null && !suspiciousFragments.isEmpty();
+    }
+
+    /** Número de fragmentos sospechosos citados en el segmento. */
+    public int getSuspiciousFragmentCount() {
+        return suspiciousFragments == null ? 0 : suspiciousFragments.size();
+    }
+
+    /** Indica si hay evidencias de mano humana que mostrar. */
+    public boolean hasHumanEvidence() {
+        return humanEvidence != null && !humanEvidence.isEmpty();
+    }
+
+    /** Número de evidencias de mano humana detectadas en el segmento. */
+    public int getHumanEvidenceCount() {
+        return humanEvidence == null ? 0 : humanEvidence.size();
     }
 
     /** Duración legible del análisis del segmento. */

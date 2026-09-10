@@ -4,8 +4,9 @@
 
 TextOrigin es una aplicación web para que el profesorado valore si un texto (ensayo, artículo,
 trabajo académico) presenta indicios de haber sido generado por IA. Sube un PDF, un DOCX o un
-TXT —o pega el texto directamente— y obtienes un mapa **párrafo a párrafo** con un score, los
-indicadores detectados, una explicación en lenguaje sencillo y un informe en PDF.
+TXT —o pega el texto directamente— y obtienes un mapa **párrafo a párrafo** con un porcentaje
+orientativo, las **citas textuales de los fragmentos sospechosos** con su motivo, las posibles
+**evidencias de mano humana**, una explicación en lenguaje sencillo y un informe en PDF.
 
 > **Aviso importante:** TextOrigin es una herramienta **orientativa**. Sus resultados **no
 > constituyen prueba de uso de IA** y pueden contener falsos positivos, especialmente en
@@ -40,12 +41,15 @@ indicadores detectados, una explicación en lenguaje sencillo y un informe en PD
 - **Carga flexible**: arrastrar y soltar (PDF, DOCX, TXT hasta 10 MB) o pegar el texto.
 - **Extracción de texto** con Apache PDFBox 3 (PDF), Apache POI 5 (DOCX, incluidas tablas) y
   detección de codificación en TXT (UTF-8 con respaldo a Windows-1252).
-- **Análisis por párrafos** con DeepSeek mediante un prompt de cadena de pensamiento que
-  devuelve JSON estructurado.
-- **Resultados visuales**: cada párrafo se resalta en verde (< 40), amarillo (40-70) o rojo
-  (> 70), y al pulsarlo se despliega su análisis detallado.
-- **Informe PDF** con portada, resumen ejecutivo, texto anotado, tabla segmento a segmento y
-  advertencias metodológicas.
+- **Análisis por párrafos** con DeepSeek mediante un prompt que devuelve JSON estructurado: el
+  porcentaje estimado, los indicadores, hasta 5 citas literales por párrafo con su nivel de
+  sospecha y las señales de autoría humana.
+- **Resultados visuales**: cada párrafo se resalta en verde (< 40 %), amarillo (40-70 %) o rojo
+  (> 70 %), y al pulsarlo se despliega su análisis detallado.
+- **Citas agregadas**: un panel reúne todos los fragmentos sospechosos del documento y abre el
+  detalle de su segmento al pulsarlos; otro lista las evidencias de mano humana.
+- **Informe PDF** con portada, resumen ejecutivo, texto anotado, tabla segmento a segmento,
+  fragmentos sospechosos citados, evidencias de mano humana y advertencias metodológicas.
 - **Sin base de datos y sin autenticación**: todo vive en memoria, con purga automática.
 - **Interfaz HTMX**: interactividad sin recargar la página y sin JavaScript complejo.
 - **HTMX servido localmente** desde WebJars: funciona en redes cerradas y sin CDN.
@@ -135,7 +139,8 @@ cp .env.example .env      # edita .env y escribe tu clave
 make up                   # equivale a: docker compose up -d --build
 ```
 
-La aplicación queda en **http://localhost:8080**. Otros comandos útiles:
+La aplicación queda en **http://localhost:9091** (`docker-compose.yml` publica el puerto `9091`
+del anfitrión sobre el `8080` del contenedor). Otros comandos útiles:
 
 ```bash
 make logs      # seguir los registros
@@ -186,8 +191,6 @@ Variables de entorno admitidas por el contenedor (todas opcionales salvo la prim
 | Variable | Propiedad | Por defecto |
 |---|---|---|
 | `DEEPSEEK_API_KEY` | `spring.ai.openai.api-key` | — (obligatoria) |
-| `TEXTOORIGIN_PORT` | Puerto publicado en el anfitrión | `8080` |
-| `TEXTOORIGIN_QUOTA_MAX_PER_SESSION` | `textorigin.quota.max-per-session` | `3` |
 | `TEXTOORIGIN_QUOTA_MAX_PER_IP_PER_DAY` | `textorigin.quota.max-per-ip-per-day` | `10` |
 | `TEXTOORIGIN_ANALYSIS_CONCURRENT_SEGMENTS` | `textorigin.analysis.concurrent-segments` | `5` |
 | `TEXTOORIGIN_CONTACT_EMAIL` | `textorigin.contact-email` | `jgrateron@gmail.com` |
@@ -309,18 +312,20 @@ textorigin/
     │   │   ├── TextSegmentationService.java   # División en párrafos analizables
     │   │   ├── DeepSeekAnalysisService.java   # Llamada al modelo, reintentos, async
     │   │   ├── AnalysisStorageService.java    # Almacén en memoria con purga
-    │   │   ├── QuotaService.java              # Límites por sesión y por IP
+    │   │   ├── QuotaService.java              # Límite diario por IP
     │   │   └── PdfReportService.java          # Informe PDF con PDFBox 3
     │   ├── model/
     │   │   ├── Document.java
     │   │   ├── Segment.java
     │   │   ├── SegmentAnalysis.java
+    │   │   ├── SuspiciousFragment.java     # Cita textual señalada por el modelo
     │   │   ├── DocumentAnalysis.java
     │   │   └── AnalysisRequest.java
     │   ├── dto/
     │   │   ├── DeepSeekRequest.java        # Petición en formato OpenAI
     │   │   ├── DeepSeekResponse.java       # Respuesta en formato OpenAI
-    │   │   └── SegmentResultDto.java       # JSON devuelto por el modelo
+    │   │   ├── SegmentResultDto.java       # JSON devuelto por el modelo
+    │   │   └── SuspiciousFragmentDto.java  # Normalización de cada cita
     │   └── exception/
     │       ├── TextExtractionException.java
     │       ├── QuotaExceededException.java
@@ -336,6 +341,13 @@ textorigin/
         └── static/
             ├── css/textorigin.css
             └── js/dragdrop.js
+
+└── src/test/java/com/textorigin/
+    ├── PromptContractTest.java             # El prompt declara todos los campos del contrato
+    ├── controller/AnalysisResultsRenderTest.java   # Renderizado real con MockMvc
+    ├── dto/SegmentResultDtoTest.java       # Normalización de la respuesta del modelo
+    ├── model/DocumentAnalysisTest.java     # Agregados de citas y porcentaje global
+    └── service/PdfReportServiceTest.java   # Informe PDF (texto extraído con PDFBox)
 ```
 
 > `GlobalExceptionHandler` se añadió a la estructura para cumplir el requisito de manejo
@@ -362,22 +374,27 @@ textorigin/
    exponencial (`retry-delay-ms × 2^(intento-1)`).
 7. **Publicación de resultados** — cada segmento terminado se publica de inmediato, de modo
    que la barra de progreso avanza de verdad. Un segmento que falla no arrastra al resto.
+   Mientras el análisis está en curso, el botón «Analizar documento» permanece desactivado
+   para no lanzar dos análisis a la vez.
 8. **Consumo de cuota** — solo se descuenta si el análisis termina con algún resultado.
 
 El prompt vive en `src/main/resources/prompts/deepseek-analysis.txt` y se carga con
 `@Value("classpath:prompts/deepseek-analysis.txt")`: puedes ajustarlo sin tocar el código Java,
 reiniciando la aplicación.
 
+Además del porcentaje, el modelo debe **citar literalmente** los fragmentos que justifican su
+valoración (con un motivo y un nivel de sospecha) e indicar las **señales de autoría humana**
+que encuentre. Ambas listas pueden venir vacías y la aplicación las normaliza antes de
+mostrarlas; las citas se muestran tal cual llegaron, sin comprobar que sean literales.
+
 ---
 
 ## Sistema de cuotas
 
-Para evitar abusos y contener el gasto de tokens, cada visitante tiene **dos límites
-independientes**:
+Para evitar abusos y contener el gasto de tokens, cada conexión tiene un **límite diario**:
 
 | Límite | Valor por defecto | Dónde se guarda | Cuándo se reinicia |
 |---|---|---|---|
-| Por sesión HTTP | **3 análisis** | Atributo de la `HttpSession` | Al expirar la sesión (30 min de inactividad) |
 | Por IP y día | **10 análisis** | `ConcurrentHashMap` en memoria | Tarea programada diaria a las 3:00 |
 
 Detalles importantes:
@@ -387,19 +404,23 @@ Detalles importantes:
   `getRemoteAddr()`. Se ignoran los valores `unknown` y se descarta el puerto.
 - **La comprobación se hace antes de llamar a DeepSeek** y el consumo **solo se registra
   cuando el análisis termina con resultados**. Si la API falla, el usuario no pierde cuota.
-- **Al agotar la cuota** la interfaz muestra un bloque centrado con el motivo concreto (sesión
-  o IP) y el correo de contacto configurado en `textorigin.contact-email` para solicitar más análisis.
-- **En la página principal** hay una barra de progreso con los análisis disponibles en la
-  sesión, que se pone roja al llegar a cero y se actualiza sola al terminar cada análisis.
-- La limpieza de las cuotas por IP se ejecuta con `@Scheduled(cron = "0 0 3 * * *")` y elimina
-  las entradas de días anteriores.
+- **Al agotar la cuota** la interfaz muestra un bloque centrado con el motivo y el correo de
+  contacto configurado en `textorigin.contact-email` para solicitar más análisis.
+- **En la página principal** hay una barra de progreso con los análisis disponibles hoy desde
+  la conexión, que se pone roja al llegar a cero y se actualiza sola al terminar cada análisis.
+- La limpieza de las cuotas se ejecuta con `@Scheduled(cron = "0 0 3 * * *")` y elimina las
+  entradas de días anteriores.
 
 > **Limitación conocida:** la comprobación y el registro no son una operación atómica. Dos
-> peticiones simultáneas de la misma sesión podrían pasar ambas la comprobación antes de que
+> peticiones simultáneas de la misma IP podrían pasar ambas la comprobación antes de que
 > ninguna registre su consumo. Es una aproximación aceptable para un límite anti-abuso de este
-> tipo; bloquear la sesión durante todo el análisis penalizaría mucho más al usuario. Tenlo en
-> cuenta si despliegas la aplicación en un entorno con mucho tráfico: en ese caso conviene
-> añadir un contador atómico compartido o un limitador por IP más estricto.
+> tipo. Tenlo en cuenta si despliegas la aplicación en un entorno con mucho tráfico: en ese
+> caso conviene añadir un contador atómico compartido o un limitador más estricto.
+>
+> **Redes compartidas:** todo el tráfico que salga por una misma IP (un aula con NAT, una
+> oficina) comparte el contador diario. Si lo despliegas en un centro educativo, ajusta
+> `textorigin.quota.max-per-ip-per-day` al volumen de trabajo previsto o despliega la
+> aplicación detrás de un proxy que preserve la IP real del cliente.
 
 ---
 
@@ -411,7 +432,6 @@ Detalles importantes:
 textorigin:
   contact-email: jgrateron@gmail.com   # Aparece en la interfaz, los errores y el informe PDF
   quota:
-    max-per-session: 3          # Análisis por sesión HTTP
     max-per-ip-per-day: 10      # Análisis por IP y día
   analysis:
     min-text-length: 100        # Longitud mínima del texto a analizar
@@ -425,7 +445,7 @@ Cualquier valor puede sobrescribirse sin recompilar:
 
 ```bash
 java -jar target/textorigin-1.0.0.jar \
-  --textorigin.quota.max-per-session=5 \
+  --textorigin.quota.max-per-ip-per-day=20 \
   --textorigin.analysis.concurrent-segments=10
 ```
 
@@ -480,8 +500,10 @@ Decisiones que conviene conocer antes de modificar el proyecto:
   `https://api.deepseek.com` y `https://api.deepseek.com/v1`.
 - **Respuestas del modelo**: aunque se pide JSON puro, el servicio tolera bloques Markdown
   (```` ```json ````), texto alrededor, scores fuera de rango, niveles no reconocidos y
-  `"null"` como cadena. Un segmento con respuesta inválida se marca como no analizado y no
-  invalida el resto del informe.
+  `"null"` como cadena. Los fragmentos sospechosos y las evidencias se normalizan igual: se
+  descartan las citas sin texto, se quitan las comillas envolventes, se recortan las citas de
+  más de 300 caracteres, se limitan a 5 por segmento y se eliminan duplicados. Un segmento con
+  respuesta inválida se marca como no analizado y no invalida el resto del informe.
 - **PDF**: se usan las fuentes estándar Helvetica (WinAnsi). Los caracteres no representables
   (emojis, alfabetos no latinos) se sustituyen por `?` para que el informe siempre se genere.
   Al generar el informe verás en el log tres avisos del tipo

@@ -7,6 +7,14 @@ sin texto adicional, con esta estructura exacta:
   "perplexity_indicator": "<bajo|medio|alto>",
   "burstiness_indicator": "<bajo|medio|alto>",
   "indicators": ["<indicador 1>", "<indicador 2>"],
+  "suspicious_fragments": [
+    {
+      "text": "<cita literal copiada del segmento>",
+      "reason": "<motivo concreto en español sencillo>",
+      "level": "<alto|medio|bajo>"
+    }
+  ],
+  "human_evidence": ["<señal breve de posible autoría humana>"],
   "explanation": "<explicación en español sencillo para un profesor>",
   "false_positive_warning": "<advertencia específica o null>"
 }
@@ -17,9 +25,35 @@ Criterios de evaluación:
 - Coherencia excesiva = estructura demasiado perfecta
 - Ausencia de errores o variaciones estilísticas humanas
 - Uso de conectores genéricos y repetitivos
+- Presencia de "ruido" humano: erratas coherentes, ironía, jerga muy
+  específica, opiniones arriesgadas o cambios de registro
+
+Fragmentos sospechosos (suspicious_fragments):
+- Copia el texto EXACTAMENTE como aparece en el segmento: no corrijas, no
+  resumas, no reformules y no añadas comillas dentro de la cita.
+- Cada cita debe ser la unidad mínima que contenga el patrón (una frase o
+  menos), nunca el segmento completo y nunca más de 300 caracteres.
+- Entre 1 y 5 fragmentos por segmento. Si el segmento es corto o no hay nada
+  que destacar, devuelve la lista vacía: "suspicious_fragments": [].
+- "level": "alto" si el patrón es muy característico de IA, "medio" si es
+  compatible y "bajo" si es un indicio leve.
+- "reason": una sola frase concreta, pensada para que el profesor entienda
+  qué se ha detectado en esa cita.
+
+Evidencias de mano humana (human_evidence):
+- Lista de 0 a 5 señales concretas: erratas o errores coherentes, ironía,
+  jerga local o de especialidad, opiniones arriesgadas, referencias
+  personales, cambios de registro.
+- Cada elemento es una frase breve (máximo 200 caracteres), no una cita larga.
+- Si no detectas ninguna, devuelve "human_evidence": []. No escribas dentro
+  de la lista mensajes como "No se detectaron evidencias".
 
 IMPORTANTE:
 - Nunca declares con certeza que es IA; usa lenguaje probabilístico.
+- Los campos suspicious_fragments y human_evidence deben aparecer SIEMPRE en
+  el JSON, aunque estén vacíos: no omitas ningún campo.
+- No repitas en suspicious_fragments una cita que ya hayas usado en
+  human_evidence.
 - La explicación debe ser útil para que el profesor dialogue con el estudiante.
 - Si detectas un posible falso positivo (estilo formal, escritor no nativo,
   texto técnico), añade la advertencia correspondiente en el campo

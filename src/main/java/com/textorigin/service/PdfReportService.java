@@ -3,6 +3,7 @@ package com.textorigin.service;
 import com.textorigin.exception.AnalysisException;
 import com.textorigin.model.DocumentAnalysis;
 import com.textorigin.model.SegmentAnalysis;
+import com.textorigin.model.SuspiciousFragment;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.pdfbox.pdmodel.PDDocument;
 import org.apache.pdfbox.pdmodel.PDPage;
@@ -26,12 +27,14 @@ import java.util.Locale;
 /**
  * Genera el informe PDF de un análisis con Apache PDFBox 3.
  *
- * <p>El informe se compone de cuatro secciones más la portada y el pie de página:</p>
+ * <p>El informe se compone de seis secciones más la portada y el pie de página:</p>
  * <ol>
- *   <li>Portada: título, fecha, identificador del análisis y score global.</li>
+ *   <li>Portada: título, fecha, identificador del análisis y probabilidad global de IA.</li>
  *   <li>Resumen ejecutivo: veredicto orientativo y recuento de segmentos por categoría.</li>
  *   <li>Texto analizado: cada párrafo con fondo del color de su categoría.</li>
- *   <li>Análisis segmento por segmento: tabla con score, indicadores y explicación.</li>
+ *   <li>Análisis segmento por segmento: tabla con probabilidad, indicadores y explicación.</li>
+ *   <li>Fragmentos sospechosos citados: cada cita con su motivo y nivel de sospecha.</li>
+ *   <li>Evidencias de mano humana señaladas por el modelo.</li>
  *   <li>Advertencias y limitaciones metodológicas.</li>
  * </ol>
  *
@@ -69,6 +72,8 @@ public class PdfReportService {
             writer.writeExecutiveSummary(analysis);
             writer.writeAnnotatedText(analysis);
             writer.writeSegmentTable(analysis);
+            writer.writeSuspiciousFragments(analysis);
+            writer.writeHumanEvidence(analysis);
             writer.writeMethodologicalNotes();
             writer.finish();
 
@@ -206,8 +211,8 @@ public class PdfReportService {
             fillRect(MARGIN, bottom, CONTENT_WIDTH, height, tintFor(analysis.getGlobalCategory()));
             fillRect(MARGIN, bottom, 5, height, accentFor(analysis.getGlobalCategory()));
 
-            drawText("Score global", regular, 9.5f, MARGIN + 20, top - 20, NEUTRAL_700);
-            drawText(score == null ? "n/d" : score + "/100", bold, 30, MARGIN + 20, bottom + 20,
+            drawText("Probabilidad estimada de IA", regular, 9.5f, MARGIN + 20, top - 20, NEUTRAL_700);
+            drawText(score == null ? "n/d" : score + " %", bold, 30, MARGIN + 20, bottom + 20,
                     accentFor(analysis.getGlobalCategory()));
             drawText(labelFor(analysis.getGlobalCategory()),
                     regular, 8.5f, MARGIN + 20, bottom + 10, NEUTRAL_700);
@@ -259,7 +264,8 @@ public class PdfReportService {
             cursorY -= 10;
 
             Integer score = analysis.getGlobalScoreRounded();
-            writeParagraph("Score global: " + (score == null ? "no disponible" : score + " sobre 100")
+            writeParagraph("Probabilidad estimada de IA: "
+                    + (score == null ? "no disponible" : score + " %")
                     + ". " + analysis.getVerdict() + " " + analysis.getVerdictHint(),
                     regular, 10f, NEUTRAL_900);
         }
@@ -304,7 +310,7 @@ public class PdfReportService {
         }
 
         private void writeLegend() throws IOException {
-            String[] labels = {"Probablemente humano (<40)", "Dudoso (40-70)", "Alta sospecha de IA (>70)"};
+            String[] labels = {"Probablemente humano (<40 %)", "Dudoso (40-70 %)", "Alta sospecha de IA (>70 %)"};
             float[][] accents = {SUCCESS, ACCENT, DANGER};
             float y = cursorY;
             float x = MARGIN;
@@ -480,11 +486,114 @@ public class PdfReportService {
         }
 
         // ------------------------------------------------------------------
-        // Sección 4: advertencias metodológicas
+        // Sección 4: fragmentos sospechosos citados
+        // ------------------------------------------------------------------
+
+        void writeSuspiciousFragments(DocumentAnalysis analysis) throws IOException {
+            writeSectionTitle("4. Fragmentos sospechosos citados");
+
+            if (!analysis.hasSuspiciousFragments()) {
+                writeParagraph("El modelo no ha citado fragmentos sospechosos concretos en este análisis. "
+                        + "Puedes revisar la explicación de cada segmento en la tabla anterior.",
+                        regular, 10f, NEUTRAL_900);
+                return;
+            }
+
+            int previousSegment = -1;
+            for (SuspiciousFragment fragment : analysis.getAllSuspiciousFragments()) {
+                writeFragmentBlock(fragment, fragment.getSegmentIndex() != previousSegment);
+                previousSegment = fragment.getSegmentIndex();
+            }
+        }
+
+        /** Dibuja una cita con su motivo; el bloque se mantiene entero en la misma página. */
+        private void writeFragmentBlock(SuspiciousFragment fragment, boolean withSegmentHeader) throws IOException {
+            float quoteSize = 9.5f;
+            float reasonSize = 8.5f;
+            float leading = 12.5f;
+            float padding = 8f;
+            float headerHeight = 13f;
+            float innerX = MARGIN + 12;
+            float innerWidth = CONTENT_WIDTH - 24;
+
+            List<String> quoteLines = wrap("«" + fragment.getText() + "»",
+                    oblique, quoteSize, innerWidth);
+            List<String> reasonLines = wrap("Motivo: " + fragment.getReason(),
+                    regular, reasonSize, innerWidth);
+            float height = 2 * padding + (withSegmentHeader ? headerHeight : 0)
+                    + quoteLines.size() * leading + reasonLines.size() * (leading - 1.5f);
+
+            ensureSpace(height + 10);
+            float top = cursorY + 4;
+            float bottom = top - height;
+            SegmentAnalysis.Category level = categoryForLevel(fragment.getLevel());
+            fillRect(MARGIN, bottom, CONTENT_WIDTH, height, tintFor(level));
+            fillRect(MARGIN, bottom, 4, height, accentFor(level));
+
+            float lineY = top - padding;
+            if (withSegmentHeader) {
+                drawText(fragment.getSegmentLabel() + " · " + fragment.getLevelLabel(),
+                        bold, 9f, innerX, lineY, accentFor(level));
+                lineY -= headerHeight;
+            }
+            for (String line : quoteLines) {
+                drawText(line, oblique, quoteSize, innerX, lineY, NEUTRAL_900);
+                lineY -= leading;
+            }
+            lineY -= 2;
+            for (String line : reasonLines) {
+                drawText(line, regular, reasonSize, innerX, lineY, NEUTRAL_700);
+                lineY -= leading - 1.5f;
+            }
+            cursorY = bottom - 8;
+        }
+
+        /** Traduce el nivel del fragmento a la paleta de categorías ya existente. */
+        private static SegmentAnalysis.Category categoryForLevel(String level) {
+            if (level == null) {
+                return SegmentAnalysis.Category.PENDING;
+            }
+            return switch (level) {
+                case "alto" -> SegmentAnalysis.Category.AI;
+                case "medio" -> SegmentAnalysis.Category.DOUBTFUL;
+                default -> SegmentAnalysis.Category.HUMAN;
+            };
+        }
+
+        // ------------------------------------------------------------------
+        // Sección 5: evidencias de mano humana
+        // ------------------------------------------------------------------
+
+        void writeHumanEvidence(DocumentAnalysis analysis) throws IOException {
+            writeSectionTitle("5. Evidencias de mano humana");
+
+            if (!analysis.hasHumanEvidence()) {
+                writeParagraph("No se han detectado evidencias claras de autoría humana en el documento. "
+                        + "La ausencia de estas señales no demuestra que el texto haya sido generado por IA.",
+                        regular, 10f, NEUTRAL_900);
+                return;
+            }
+
+            for (SegmentAnalysis segment : analysis.getSegments()) {
+                if (!segment.hasHumanEvidence()) {
+                    continue;
+                }
+                ensureSpace(30);
+                drawText(segment.getLabel(), bold, 10f, MARGIN, cursorY, PRIMARY);
+                cursorY -= 14;
+                for (String evidence : segment.getHumanEvidence()) {
+                    writeBullet(evidence);
+                }
+                cursorY -= 4;
+            }
+        }
+
+        // ------------------------------------------------------------------
+        // Sección 6: advertencias metodológicas
         // ------------------------------------------------------------------
 
         void writeMethodologicalNotes() throws IOException {
-            writeSectionTitle("4. Advertencias y limitaciones metodológicas");
+            writeSectionTitle("6. Advertencias y limitaciones metodológicas");
 
             writeParagraph("Este informe es orientativo y no constituye prueba de uso de IA. "
                     + "Antes de extraer conclusiones, ten en cuenta lo siguiente:", regular, 10f, NEUTRAL_900);

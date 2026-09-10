@@ -16,7 +16,7 @@ import java.util.Map;
  * Página principal de TextOrigin.
  *
  * <p>Muestra el formulario de carga (arrastrar y soltar, o texto pegado) y el indicador de
- * análisis disponibles en la sesión actual.</p>
+ * análisis disponibles hoy desde la conexión del visitante.</p>
  */
 @Slf4j
 @Controller

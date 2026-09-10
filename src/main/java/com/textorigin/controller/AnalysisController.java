@@ -25,7 +25,6 @@ import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.multipart.MultipartFile;
 
 import java.util.List;
-import java.util.concurrent.atomic.AtomicInteger;
 
 /**
  * Flujo de análisis: recepción del documento, progreso y resultados.
@@ -96,13 +95,11 @@ public class AnalysisController {
         log.info("Análisis solicitado: id={} origen={} -> {} segmentos",
                 analysis.getId(), analysisRequest.describe(), segments.size());
 
-        // La sesión y la IP se capturan ahora: el consumo se registra desde el hilo de fondo,
-        // que ya no tiene acceso a la petición HTTP.
-        AtomicInteger sessionCounter = quotaService.sessionCounter(request.getSession(true));
+        // La IP se captura ahora: el consumo se registra desde el hilo de fondo, que ya no
+        // tiene acceso a la petición HTTP.
         String clientIp = quotaService.getClientIp(request);
 
-        analysisService.analyzeAsync(analysis,
-                () -> quotaService.registerConsumption(sessionCounter, clientIp));
+        analysisService.analyzeAsync(analysis, () -> quotaService.registerConsumption(clientIp));
 
         model.addAttribute("analysis", analysis);
         return "fragments/analysis-progress :: progress";

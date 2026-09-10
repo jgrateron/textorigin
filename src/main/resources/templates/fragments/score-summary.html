@@ -2,14 +2,13 @@
 <html lang="es" xmlns:th="http://www.thymeleaf.org">
 <body>
 
-<!-- Resumen numérico del análisis: score global, contadores por categoría y metadatos. -->
+<!-- Resumen numérico del análisis: probabilidad global (porcentaje), contadores y metadatos. -->
 <section th:fragment="summary" class="card score-summary">
     <h3 class="card__title">Resumen del análisis</h3>
 
     <div class="score-dial" th:classappend="${analysis.globalCssClass}">
-        <span class="score-dial__value"
-              th:text="${analysis.globalScoreRounded != null} ? ${analysis.globalScoreRounded} : '—'">—</span>
-        <span class="score-dial__label">score global /100</span>
+        <span class="score-dial__value" th:text="${analysis.globalScoreLabel}">—</span>
+        <span class="score-dial__label">probabilidad estimada de IA</span>
     </div>
 
     <p class="score-summary__verdict" th:text="${analysis.verdict}">Veredicto orientativo</p>
@@ -50,6 +49,14 @@
         <div>
             <dt>Duración</dt>
             <dd th:text="${analysis.formattedDuration != ''} ? ${analysis.formattedDuration} : '—'">—</dd>
+        </div>
+        <div th:if="${analysis.completed}">
+            <dt>Fragmentos citados</dt>
+            <dd th:text="${analysis.suspiciousFragmentCount}">0</dd>
+        </div>
+        <div th:if="${analysis.completed}">
+            <dt>Evidencias humanas</dt>
+            <dd th:text="${analysis.humanEvidenceCount}">0</dd>
         </div>
     </dl>
 </section>

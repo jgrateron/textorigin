@@ -46,13 +46,13 @@ public class GlobalExceptionHandler {
     /**
      * Cuota agotada: se muestra el bloque de límite alcanzado con el correo de contacto.
      *
-     * @param ex      excepción con el tipo de límite agotado
+     * @param ex      excepción de cuota agotada
      * @param request petición en curso
      * @return la vista o el fragmento correspondiente
      */
     @ExceptionHandler(QuotaExceededException.class)
     public ModelAndView handleQuotaExceeded(QuotaExceededException ex, HttpServletRequest request) {
-        log.warn("Acceso denegado por cuota ({}): {}", ex.getQuotaType(), ex.getMessage());
+        log.warn("Acceso denegado por cuota: {}", ex.getMessage());
 
         if (isHtmxRequest(request)) {
             ModelAndView fragment = new ModelAndView(QUOTA_FRAGMENT);

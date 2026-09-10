@@ -3,8 +3,9 @@
 <body>
 
 <!--
-    Indicador de análisis disponibles. Se refresca solo: cuando un análisis termina, la propia
-    página pide este fragmento a /quota y sustituye este bloque por el actualizado.
+    Indicador de análisis disponibles hoy desde la conexión del visitante. Se refresca solo:
+    cuando un análisis termina, la propia página pide este fragmento a /quota y sustituye
+    este bloque por el actualizado.
 -->
 <section th:fragment="indicator" id="quota-indicator" class="card quota-card">
 
@@ -14,35 +15,24 @@
             <path d="M12 3l8 4v5c0 4.5-3.2 7.9-8 9-4.8-1.1-8-4.5-8-9V7z"/>
             <path d="M9.5 12.5l2 2 3.5-4"/>
         </svg>
-        <h3 class="quota-card__title">Análisis restantes en esta sesión</h3>
+        <h3 class="quota-card__title">Límite diario de tu conexión</h3>
     </div>
 
-    <p class="quota-card__value" th:classappend="${quota.sessionRemaining == 0} ? 'quota-card__value--empty'">
-        <span th:text="${quota.sessionRemaining}">3</span>
-        <span class="quota-card__value-total" th:text="'/ ' + ${quota.sessionLimit}">/ 3</span>
+    <p class="quota-card__value" th:classappend="${quota.ipRemaining == 0} ? 'quota-card__value--empty'">
+        <span th:text="${quota.ipRemaining}">10</span>
+        <span class="quota-card__value-total" th:text="'/ ' + ${quota.ipLimit}">/ 10</span>
     </p>
 
-    <div class="quota-bar" role="progressbar" aria-label="Análisis disponibles en esta sesión"
-         th:attr="aria-valuenow=${quota.sessionRemaining},aria-valuemin=0,aria-valuemax=${quota.sessionLimit}">
-        <div th:class="${quota.sessionBarClass}"
-             th:style="'width:' + ${quota.sessionPercent} + '%'"></div>
+    <div class="quota-bar" role="progressbar" aria-label="Análisis diarios disponibles"
+         th:attr="aria-valuenow=${quota.ipRemaining},aria-valuemin=0,aria-valuemax=${quota.ipLimit}">
+        <div th:class="${quota.ipBarClass}" th:style="'width:' + ${quota.ipPercent} + '%'"></div>
     </div>
 
-    <p class="quota-card__hint" th:switch="${quota.sessionRemaining}">
-        <span th:case="0">Has agotado los análisis de esta sesión. El contador se reinicia tras 30 minutos de inactividad.</span>
-        <span th:case="1">Te queda 1 análisis en esta sesión.</span>
-        <span th:case="*" th:text="'Te quedan ' + ${quota.sessionRemaining} + ' análisis en esta sesión.'">Te quedan 3 análisis.</span>
+    <p class="quota-card__hint" th:switch="${quota.ipRemaining}">
+        <span th:case="0">Has agotado los análisis de hoy desde esta conexión. El contador se reinicia cada día.</span>
+        <span th:case="1">Te queda 1 análisis hoy desde esta conexión.</span>
+        <span th:case="*" th:text="'Te quedan ' + ${quota.ipRemaining} + ' análisis hoy desde esta conexión.'">Te quedan 10 análisis.</span>
     </p>
-
-    <dl class="quota-card__ip">
-        <dt>Límite diario de tu conexión</dt>
-        <dd>
-            <span th:text="${quota.ipUsed} + ' / ' + ${quota.ipLimit}">0 / 10</span>
-            <span class="quota-bar quota-bar--slim">
-                <span th:class="${quota.ipBarClass}" th:style="'width:' + ${quota.ipPercent} + '%'"></span>
-            </span>
-        </dd>
-    </dl>
 
     <p class="quota-card__contact muted small" th:if="${quota.exhausted}">
         ¿Necesitas más análisis?

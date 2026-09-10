@@ -1,9 +1,7 @@
 package com.textorigin.service;
 
 import com.textorigin.exception.QuotaExceededException;
-import com.textorigin.exception.QuotaExceededException.QuotaType;
 import jakarta.servlet.http.HttpServletRequest;
-import jakarta.servlet.http.HttpSession;
 import lombok.Getter;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
@@ -16,29 +14,21 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicInteger;
 
 /**
- * Controla el número de análisis que puede lanzar cada usuario para evitar abusos y
+ * Controla el número de análisis que puede lanzar cada conexión para evitar abusos y
  * contener el gasto de tokens de DeepSeek.
  *
- * <p>Funciona con dos límites independientes y complementarios:</p>
- * <ul>
- *   <li><strong>Por sesión HTTP</strong> ({@code textorigin.quota.max-per-session}, 3 por
- *       defecto): el contador vive como atributo de la {@link HttpSession}, de modo que se
- *       reinicia solo cuando la sesión caduca por inactividad (30 minutos).</li>
- *   <li><strong>Por IP y día</strong> ({@code textorigin.quota.max-per-ip-per-day}, 10 por
- *       defecto): el contador vive en un {@link ConcurrentHashMap} en memoria, indexado por
- *       la IP real del cliente. Una tarea programada a las 3:00 elimina las entradas de
- *       días anteriores.</li>
- * </ul>
+ * <p>El límite es diario y por IP ({@code textorigin.quota.max-per-ip-per-day}, 10 por
+ * defecto): el contador vive en un {@link ConcurrentHashMap} en memoria, indexado por la IP
+ * real del cliente. Una tarea programada a las 3:00 elimina las entradas de días anteriores.</p>
  *
  * <p>El ciclo de consumo es deliberadamente conservador: {@link #checkQuota(HttpServletRequest)}
  * se ejecuta <em>antes</em> de llamar a DeepSeek para no gastar tokens en vano, pero el
- * consumo solo se registra con {@link #registerConsumption} cuando el análisis ha terminado
- * correctamente. Un análisis fallido no descuenta cuota.</p>
+ * consumo solo se registra con {@link #registerConsumption(String)} cuando el análisis ha
+ * terminado correctamente. Un análisis fallido no descuenta cuota.</p>
  *
  * <p>La verificación y el registro no son una operación atómica: dos peticiones simultáneas
- * de la misma sesión podrían pasar ambas la comprobación antes de que ninguna registre su
- * consumo. Es una aproximación aceptable para un límite anti-abuso de este tipo; la
- * alternativa (bloquear la sesión durante todo el análisis) penalizaría mucho más al usuario.</p>
+ * de la misma IP podrían pasar ambas la comprobación antes de que ninguna registre su
+ * consumo. Es una aproximación aceptable para un límite anti-abuso de este tipo.</p>
  */
 @Slf4j
 @Service
@@ -46,9 +36,6 @@ public class QuotaService {
 
     /** Correo de contacto usado si no se configura {@code textorigin.contact-email}. */
     private static final String DEFAULT_CONTACT_EMAIL = "jgrateron@gmail.com";
-
-    /** Atributo de sesión donde se guarda el contador. */
-    private static final String SESSION_COUNTER_ATTRIBUTE = "textorigin.quota.session.counter";
 
     /**
      * Cabeceras que pueden contener la IP real cuando hay un proxy inverso delante.
@@ -60,21 +47,18 @@ public class QuotaService {
             "Proxy-Client-IP",
             "WL-Proxy-Client-IP");
 
-    private final int maxPerSession;
     private final int maxPerIpPerDay;
     private final String contactEmail;
 
     /** Contadores por IP, con la fecha del día al que corresponden. */
     private final ConcurrentHashMap<String, IpQuota> ipQuotas = new ConcurrentHashMap<>();
 
-    public QuotaService(@Value("${textorigin.quota.max-per-session:3}") int maxPerSession,
-                        @Value("${textorigin.quota.max-per-ip-per-day:10}") int maxPerIpPerDay,
+    public QuotaService(@Value("${textorigin.quota.max-per-ip-per-day:10}") int maxPerIpPerDay,
                         @Value("${textorigin.contact-email:" + DEFAULT_CONTACT_EMAIL + "}") String contactEmail) {
-        this.maxPerSession = maxPerSession;
         this.maxPerIpPerDay = maxPerIpPerDay;
         this.contactEmail = contactEmail;
-        log.info("Sistema de cuotas activo: {} análisis por sesión, {} por IP y día (contacto: {})",
-                maxPerSession, maxPerIpPerDay, contactEmail);
+        log.info("Sistema de cuotas activo: {} análisis por IP y día (contacto: {})",
+                maxPerIpPerDay, contactEmail);
     }
 
     /**
@@ -96,17 +80,11 @@ public class QuotaService {
     @Getter
     public static class QuotaStatus {
 
-        private final int sessionUsed;
-        private final int sessionLimit;
-        private final int sessionRemaining;
         private final int ipUsed;
         private final int ipLimit;
         private final int ipRemaining;
 
-        QuotaStatus(int sessionUsed, int sessionLimit, int ipUsed, int ipLimit) {
-            this.sessionUsed = sessionUsed;
-            this.sessionLimit = sessionLimit;
-            this.sessionRemaining = Math.max(0, sessionLimit - sessionUsed);
+        QuotaStatus(int ipUsed, int ipLimit) {
             this.ipUsed = ipUsed;
             this.ipLimit = ipLimit;
             this.ipRemaining = Math.max(0, ipLimit - ipUsed);
@@ -114,38 +92,20 @@ public class QuotaService {
 
         /** Indica si ya no se puede lanzar ningún análisis. */
         public boolean isExhausted() {
-            return sessionRemaining <= 0 || ipRemaining <= 0;
+            return ipRemaining <= 0;
         }
 
-        /** Motivo del agotamiento, para el mensaje de la interfaz. */
-        public String getExhaustedReason() {
-            if (sessionRemaining <= 0) {
-                return "SESSION";
-            }
-            return ipRemaining <= 0 ? "IP" : "";
-        }
-
-        /** Porcentaje de cuota de sesión todavía disponible (0-100). */
-        public int getSessionPercent() {
-            return sessionLimit == 0 ? 0 : (int) Math.round(sessionRemaining * 100.0 / sessionLimit);
-        }
-
-        /** Porcentaje de cuota por IP todavía disponible (0-100). */
+        /** Porcentaje de cuota diaria todavía disponible (0-100). */
         public int getIpPercent() {
             return ipLimit == 0 ? 0 : (int) Math.round(ipRemaining * 100.0 / ipLimit);
         }
 
-        /** Clase CSS de la barra de sesión: se vuelve roja al agotarse. */
-        public String getSessionBarClass() {
-            if (sessionRemaining <= 0) {
+        /** Clase CSS de la barra: se vuelve roja al agotarse y ámbar con un solo análisis. */
+        public String getIpBarClass() {
+            if (ipRemaining <= 0) {
                 return "quota-bar-fill quota-bar-empty";
             }
-            return sessionRemaining == 1 ? "quota-bar-fill quota-bar-low" : "quota-bar-fill";
-        }
-
-        /** Clase CSS de la barra por IP. */
-        public String getIpBarClass() {
-            return ipRemaining <= 0 ? "quota-bar-fill quota-bar-empty" : "quota-bar-fill";
+            return ipRemaining == 1 ? "quota-bar-fill quota-bar-low" : "quota-bar-fill";
         }
     }
 
@@ -154,16 +114,13 @@ public class QuotaService {
     // ==================================================================
 
     /**
-     * Devuelve el estado actual de la cuota del visitante. Crea la sesión si aún no existe,
-     * porque el contador de sesión vive en ella.
+     * Devuelve el estado actual de la cuota del visitante.
      *
      * @param request petición HTTP en curso
      * @return el estado de la cuota, nunca {@code null}
      */
     public QuotaStatus getStatus(HttpServletRequest request) {
-        int sessionUsed = sessionCounter(request.getSession(true)).get();
-        int ipUsed = currentIpCount(getClientIp(request));
-        return new QuotaStatus(sessionUsed, maxPerSession, ipUsed, maxPerIpPerDay);
+        return new QuotaStatus(currentIpCount(getClientIp(request)), maxPerIpPerDay);
     }
 
     /**
@@ -171,28 +128,18 @@ public class QuotaService {
      * DeepSeek.
      *
      * @param request petición HTTP en curso
-     * @throws QuotaExceededException si se ha agotado la cuota de sesión o la de IP
+     * @throws QuotaExceededException si se ha agotado la cuota diaria de la conexión
      */
     public void checkQuota(HttpServletRequest request) {
-        HttpSession session = request.getSession(true);
-        int sessionUsed = sessionCounter(session).get();
-        if (sessionUsed >= maxPerSession) {
-            log.warn("Cuota denegada (sesión): sesión={} consumo={}/{}", session.getId(),
-                    sessionUsed, maxPerSession);
-            throw new QuotaExceededException(QuotaType.SESSION, maxPerSession, sessionUsed,
-                    "Límite de análisis por sesión alcanzado");
-        }
-
         String clientIp = getClientIp(request);
         int ipUsed = currentIpCount(clientIp);
         if (ipUsed >= maxPerIpPerDay) {
-            log.warn("Cuota denegada (IP): ip={} consumo={}/{}", clientIp, ipUsed, maxPerIpPerDay);
-            throw new QuotaExceededException(QuotaType.IP, maxPerIpPerDay, ipUsed,
+            log.warn("Cuota denegada: ip={} consumo={}/{}", clientIp, ipUsed, maxPerIpPerDay);
+            throw new QuotaExceededException(maxPerIpPerDay, ipUsed,
                     "Límite de análisis diarios por IP alcanzado");
         }
 
-        log.debug("Cuota disponible: sesión={}/{} ip={} ({}/{})",
-                sessionUsed, maxPerSession, clientIp, ipUsed, maxPerIpPerDay);
+        log.debug("Cuota disponible: ip={} ({}/{})", clientIp, ipUsed, maxPerIpPerDay);
     }
 
     // ==================================================================
@@ -200,52 +147,20 @@ public class QuotaService {
     // ==================================================================
 
     /**
-     * Obtiene (creando si hace falta) el contador asociado a una sesión.
-     *
-     * <p>Se expone para que el controlador pueda capturar el contador antes de lanzar el
-     * análisis asíncrono y registrar el consumo desde el hilo de fondo sin volver a tocar
-     * la {@link HttpSession}, que puede haber caducado para entonces.</p>
-     *
-     * @param session sesión HTTP
-     * @return contador de análisis de esa sesión
-     */
-    public AtomicInteger sessionCounter(HttpSession session) {
-        Object existing = session.getAttribute(SESSION_COUNTER_ATTRIBUTE);
-        if (existing instanceof AtomicInteger counter) {
-            return counter;
-        }
-        AtomicInteger counter = new AtomicInteger();
-        session.setAttribute(SESSION_COUNTER_ATTRIBUTE, counter);
-        return counter;
-    }
-
-    /**
-     * Registra un análisis completado con éxito sobre la sesión indicada.
-     *
-     * @param session   sesión HTTP
-     * @param clientIp  IP del cliente
-     */
-    public void registerConsumption(HttpSession session, String clientIp) {
-        registerConsumption(sessionCounter(session), clientIp);
-    }
-
-    /**
      * Registra un análisis completado con éxito. Se llama solo cuando el análisis ha
-     * terminado correctamente, y puede invocarse desde el hilo asíncrono.
+     * terminado correctamente y puede invocarse desde el hilo asíncrono: solo usa la IP
+     * capturada durante la petición, sin tocar la {@code HttpServletRequest}.
      *
-     * @param sessionCounter contador de la sesión, capturado durante la petición
-     * @param clientIp       IP del cliente, capturada durante la petición
+     * @param clientIp IP del cliente, capturada durante la petición
      */
-    public void registerConsumption(AtomicInteger sessionCounter, String clientIp) {
-        int sessionUsed = sessionCounter.incrementAndGet();
+    public void registerConsumption(String clientIp) {
         IpQuota quota = ipQuotas.compute(clientIp, (ip, existing) ->
                 (existing == null || !existing.date().equals(LocalDate.now()))
                         ? new IpQuota(LocalDate.now(), new AtomicInteger())
                         : existing);
         int ipUsed = quota.count().incrementAndGet();
 
-        log.info("Consumo registrado: ip={} sesión={}/{} ip={}/{}",
-                clientIp, sessionUsed, maxPerSession, ipUsed, maxPerIpPerDay);
+        log.info("Consumo registrado: ip={} {}/{}", clientIp, ipUsed, maxPerIpPerDay);
     }
 
     // ==================================================================

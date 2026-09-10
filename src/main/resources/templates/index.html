@@ -13,6 +13,7 @@
     <link rel="stylesheet" th:href="@{/css/textorigin.css}">
     <script th:src="@{/webjars/htmx.org/1.9.12/dist/htmx.min.js}" defer></script>
     <script th:src="@{/js/dragdrop.js}" defer></script>
+    <script th:src="@{/js/analysis-state.js}" defer></script>
 </head>
 <body>
 
@@ -92,7 +93,7 @@
                 <ol class="steps">
                     <li>El documento se divide en párrafos.</li>
                     <li>Cada párrafo se analiza por separado con un modelo de lenguaje.</li>
-                    <li>Obtienes un score por párrafo, un resumen y un informe en PDF.</li>
+                    <li>Obtienes un porcentaje por párrafo, las citas de los fragmentos sospechosos y un informe en PDF.</li>
                 </ol>
             </section>
         </aside>

@@ -12,7 +12,7 @@
     <header class="segment-detail__head">
         <span class="segment-detail__label" th:text="${segment.label}">Segmento 1</span>
         <span class="badge" th:classappend="${segment.cssClass}"
-              th:text="${segment.categoryLabel} + ' · ' + ${segment.scoreLabel}">Dudoso · 55/100</span>
+              th:text="${segment.categoryLabel} + ' · ' + ${segment.scoreLabel}">Dudoso · 55 %</span>
     </header>
 
     <p class="segment-detail__text" th:text="${segment.text}">Texto del segmento.</p>
@@ -31,8 +31,8 @@
     <th:block th:if="${segment.completed}">
         <dl class="metric-grid">
             <div>
-                <dt>Score</dt>
-                <dd th:text="${segment.scoreValue} + '/100'">55/100</dd>
+                <dt>Prob. IA</dt>
+                <dd th:text="${segment.scoreValue} + ' %'">55 %</dd>
             </div>
             <div>
                 <dt>Perplejidad</dt>
@@ -52,6 +52,27 @@
             <h4 class="segment-detail__subtitle">Indicadores detectados</h4>
             <ul class="tag-list">
                 <li th:each="indicator : ${segment.indicators}" th:text="${indicator}">Indicador</li>
+            </ul>
+        </div>
+
+        <div class="segment-detail__block" th:if="${segment.hasSuspiciousFragments()}">
+            <h4 class="segment-detail__subtitle">Fragmentos sospechosos</h4>
+            <ul class="fragment-list">
+                <li class="fragment" th:each="fragment : ${segment.suspiciousFragments}">
+                    <blockquote class="fragment__quote" th:text="${fragment.text}">Cita textual del segmento.</blockquote>
+                    <p class="fragment__reason" th:text="${fragment.reason}">Motivo señalado por el modelo.</p>
+                    <p class="fragment__meta">
+                        <span class="badge badge--sm" th:classappend="${fragment.levelCssClass}"
+                              th:text="${fragment.levelLabel}">Sospecha media</span>
+                    </p>
+                </li>
+            </ul>
+        </div>
+
+        <div class="segment-detail__block" th:if="${segment.hasHumanEvidence()}">
+            <h4 class="segment-detail__subtitle">Evidencias de mano humana</h4>
+            <ul class="tag-list tag-list--human">
+                <li th:each="evidence : ${segment.humanEvidence}" th:text="${evidence}">Errata coherente.</li>
             </ul>
         </div>
 
